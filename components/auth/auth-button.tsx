@@ -12,9 +12,10 @@ import {
 
 interface AuthButtonProps {
   className?: string;
+  label?: string;
 }
 
-export function AuthButton({ className }: AuthButtonProps) {
+export function AuthButton({ className, label = "Join the protocol" }: AuthButtonProps) {
   const { isAuthenticated, isLoading, user, login, logout } = useAuth();
   const router = useRouter();
 
@@ -34,7 +35,7 @@ export function AuthButton({ className }: AuthButtonProps) {
         onClick={login}
         className={className ?? "rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5"}
       >
-        Connect
+        {label}
       </Button>
     );
   }
