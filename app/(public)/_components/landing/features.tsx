@@ -1,94 +1,87 @@
+import { Users, Map, Home } from "lucide-react"
+
+const features = [
+  {
+    icon: Users,
+    title: "Communities",
+    subtitle: "Build your scene. Grow your tribe.",
+    body: "Permanent hubs for groups with identity — DAOs, local scenes, builder collectives. Unlimited members, public or private. Spawn Hack Spaces and Hacker Houses directly from your community.",
+    tags: ["DAOs", "Local Scenes", "Protocols", "Collectives"],
+    color: "#8B78E6",
+  },
+  {
+    icon: Map,
+    title: "Hack Spaces",
+    subtitle: "Project rooms for teams building in public.",
+    body: "Post your project, define the roles you need, and match with builders who complement your skills — not who replicate them. Your on-chain credentials speak for you.",
+    tags: ["DeFi", "AI", "Smart Contracts", "DAO"],
+    color: "#6B00C9",
+  },
+  {
+    icon: Home,
+    title: "Hacker Houses",
+    subtitle: "Co-living IRL. Skin in the game.",
+    body: "Stake to secure your slot. A Key NFT per room. Physical spaces during events and in active builder cities — coordinated, filtered, and optimized for shipping code.",
+    tags: ["Free", "Paid", "With Staking"],
+    color: "#6EE76E",
+  },
+]
+
 export function Features() {
   return (
-    <section className="py-24 border-t border-border">
-      <div className="max-w-6xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h2 className="font-display font-bold text-foreground text-3xl sm:text-4xl">
-            Two ways to build. One protocol.
+    <section id="features" className="px-4 py-20 bg-[#180149]">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-14">
+          <h2 className="font-display font-bold text-3xl md:text-4xl text-white">
+            One protocol. Three ways to build.
           </h2>
         </div>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Hack Spaces — primary feature */}
-          <div
-            className="bg-card border border-border rounded-lg p-8 flex flex-col gap-6 relative overflow-hidden"
-            style={{ borderLeftColor: "var(--primary)", borderLeftWidth: "3px" }}
-          >
-            <div className="flex flex-col gap-2">
-              <span className="text-2xl">🔗</span>
-              <h3 className="font-display font-bold text-foreground text-2xl">
-                Hack Spaces
-              </h3>
-              <p className="text-muted-foreground font-medium">
-                Find your team. Build together.
-              </p>
-            </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {features.map((f) => {
+            const Icon = f.icon
+            return (
+              <div
+                key={f.title}
+                className="bg-[#1A1740] border border-[#2E2A5A] rounded-lg p-6 flex flex-col gap-5 hover:border-[#6B00C9] transition-colors duration-200 group"
+              >
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: `${f.color}20` }}
+                >
+                  <Icon className="w-6 h-6" style={{ color: f.color }} />
+                </div>
 
-            <p className="text-muted-foreground leading-relaxed">
-              Post your project, define the roles you need, and let the algorithm
-              match you with builders who fit — by archetype, skills, region, and
-              language.
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              No scrolling through profiles. No cold DMs into the void. Just
-              high-signal matches for the work you actually want to ship.
-            </p>
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-display font-bold text-xl text-white">
+                    {f.title}
+                  </h3>
+                  <p className="text-sm font-medium" style={{ color: f.color }}>
+                    {f.subtitle}
+                  </p>
+                </div>
 
-            <ul className="flex flex-col gap-2 mt-auto">
-              {[
-                "Algorithmic matching by archetype and skill set",
-                "Post a project or join one already forming",
-                "Your on-chain credentials speak for you",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span style={{ color: "var(--primary)" }} className="mt-0.5 shrink-0">
-                    →
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
+                <p className="text-[#7B7A8E] text-sm leading-relaxed flex-1">
+                  {f.body}
+                </p>
 
-          {/* Hacker Houses */}
-          <div className="bg-card border border-border rounded-lg p-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <span className="text-2xl">🏠</span>
-              <h3 className="font-display font-bold text-foreground text-2xl">
-                Hacker Houses
-              </h3>
-              <p className="text-muted-foreground font-medium">
-                Live with your team. Show up IRL.
-              </p>
-            </div>
-
-            <p className="text-muted-foreground leading-relaxed">
-              When your team is ready to meet in person, spin up a Hacker House.
-              Co-living with builders in event cities — coordinated, filtered, and
-              builder-optimized.
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              Not Airbnb. Not a hostel. A protocol for building together in the
-              same room.
-            </p>
-
-            <ul className="flex flex-col gap-2 mt-auto">
-              {[
-                "Spaces in key cities and event hubs",
-                "Builder-filtered — no randoms",
-                "Sponsored houses available from verified organizations",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <span style={{ color: "var(--primary)" }} className="mt-0.5 shrink-0">
-                    →
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
+                <div className="flex flex-wrap gap-2 mt-auto">
+                  {f.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-3 py-1 text-xs rounded"
+                      style={{
+                        backgroundColor: `${f.color}20`,
+                        color: f.color,
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </section>

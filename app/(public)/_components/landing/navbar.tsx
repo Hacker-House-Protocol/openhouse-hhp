@@ -6,7 +6,6 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { AuthButton } from "@/components/auth/auth-button"
 import { useAuth } from "@/hooks/use-auth"
-import { Button } from "@/components/ui/button"
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -42,15 +41,14 @@ export function Navbar() {
         </div>
 
         {!isLoading && isAuthenticated ? (
-          <Button
-            size="sm"
-            asChild
-            className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5"
+          <Link
+            href="/dashboard"
+            className="h-10 px-6 inline-flex items-center justify-center bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white text-sm font-bold rounded-xl border-2 border-purple-400/30 shadow-lg transition-all duration-300 hover:scale-[1.02]"
           >
-            <Link href="/dashboard">Dashboard →</Link>
-          </Button>
+            Join the protocol
+          </Link>
         ) : (
-          <AuthButton />
+          <AuthButton className="h-10 px-6 inline-flex items-center justify-center bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white text-sm font-bold rounded-xl border-2 border-purple-400/30 shadow-lg transition-all duration-300 hover:scale-[1.02]" />
         )}
       </nav>
     </header>

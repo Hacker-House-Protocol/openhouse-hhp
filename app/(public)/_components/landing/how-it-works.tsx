@@ -1,82 +1,50 @@
 const steps = [
   {
-    number: "01",
+    number: "1",
     title: "Create your Cypher Identity",
-    body: "Connect your wallet or sign up with email. Your on-chain credentials — POAPs, contributions, Talent Protocol score — import automatically.",
-    footnote: "Your identity lives on the protocol. Not on a platform.",
+    body: "Connect wallet or email. POAPs, NFTs and on-chain credentials import automatically.",
   },
   {
-    number: "02",
-    title: "Find your match",
-    body: "Browse Hack Spaces looking for your archetype and skills. Or post your own project and let builders find you.",
-    footnote: "The algorithm surfaces the right fits. You pick who to build with.",
+    number: "2",
+    title: "Match with complementary builders",
+    body: "Post your project or browse Hack Spaces. The algorithm finds who fits — not who copies you.",
   },
   {
-    number: "03",
-    title: "Build IRL",
-    body: "When the team is ready, spin up a Hacker House. Meet. Build. Ship.",
-    footnote: "The protocol takes you from idea to room in the same building.",
+    number: "3",
+    title: "Coordinate, build, ship",
+    body: "Join a Community, spin up a Hack Space, or secure your slot in a Hacker House. Meet IRL. Ship.",
   },
 ]
 
 export function HowItWorks() {
   return (
-    <section className="py-24 border-t border-border">
-      <div className="max-w-6xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h2 className="font-display font-bold text-foreground text-3xl sm:text-4xl">
-            Three steps. Then you&apos;re building.
+    <section className="px-4 py-20 bg-[#180149]">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-14">
+          <h2 className="font-display font-bold text-3xl md:text-4xl text-white">
+            How It Works
           </h2>
         </div>
 
-        {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 relative">
-          {/* Connector line — desktop only */}
-          <div
-            className="absolute top-8 left-[calc(33.3%+1rem)] right-[calc(33.3%+1rem)] h-px hidden md:block"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(to right, var(--border) 0, var(--border) 6px, transparent 6px, transparent 14px)",
-            }}
-          />
-
-          {steps.map((step, i) => (
+        <div className="grid md:grid-cols-3 gap-6">
+          {steps.map((step) => (
             <div
               key={step.number}
-              className="flex flex-col gap-4 px-2 md:px-8 pb-10 md:pb-0 relative"
+              className="text-center flex flex-col gap-4 group"
             >
-              {/* Vertical connector — mobile only */}
-              {i < steps.length - 1 && (
-                <div
-                  className="absolute left-2 top-16 bottom-0 w-px md:hidden"
-                  style={{
-                    backgroundImage:
-                      "repeating-linear-gradient(to bottom, var(--border) 0, var(--border) 6px, transparent 6px, transparent 14px)",
-                  }}
-                />
-              )}
-
-              {/* Step number */}
-              <span
-                className="font-display font-bold text-6xl leading-none select-none"
-                style={{ color: "var(--border)" }}
-              >
-                {step.number}
-              </span>
-
+              <div className="h-16 flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#6B00C9] rounded-full flex items-center justify-center transition-all duration-300 group-hover:w-16 group-hover:h-16 group-hover:shadow-[0_0_24px_rgba(107,0,201,0.6)]">
+                  <span className="text-white font-bold text-lg font-display">
+                    {step.number}
+                  </span>
+                </div>
+              </div>
               <div className="flex flex-col gap-2">
-                <h3 className="font-display font-bold text-foreground text-lg">
+                <h3 className="font-display font-bold text-lg text-white">
                   {step.title}
                 </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
+                <p className="text-[#7B7A8E] text-sm leading-relaxed">
                   {step.body}
-                </p>
-                <p
-                  className="text-sm font-medium mt-1"
-                  style={{ color: "var(--primary)" }}
-                >
-                  {step.footnote}
                 </p>
               </div>
             </div>

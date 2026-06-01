@@ -39,23 +39,13 @@ export function AuthButton({ className }: AuthButtonProps) {
     );
   }
 
-  const wallet = user?.linkedAccounts?.find((a) => a.type === "wallet") as
-    | { type: "wallet"; address: string }
-    | undefined;
-  const email = user?.linkedAccounts?.find((a) => a.type === "email") as
-    | { type: "email"; address: string }
-    | undefined;
-
-  const label = wallet
-    ? `${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}`
-    : email?.address ?? "Connected";
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline" className={className}>{label}</Button>
+        <Button size="sm" variant="outline" className={className}>Go to Dashboard</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => router.push("/dashboard")}>Dashboard</DropdownMenuItem>
         <DropdownMenuItem onClick={handleLogout}>Disconnect</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,10 +1,13 @@
 import type { Metadata } from "next"
 import { Navbar } from "./_components/landing/navbar"
 import { Hero } from "./_components/landing/hero"
+import { Marquee } from "./_components/landing/marquee"
 import { Features } from "./_components/landing/features"
 import { Archetypes } from "./_components/landing/archetypes"
+import { Verification } from "./_components/landing/verification"
+import { HackTheWorld } from "./_components/landing/hack-the-world"
+import { ProblemWeSolve } from "./_components/landing/problem-we-solve"
 import { HowItWorks } from "./_components/landing/how-it-works"
-import { EventCallout } from "./_components/landing/event-callout"
 import { FinalCta } from "./_components/landing/final-cta"
 import { Footer } from "./_components/landing/footer"
 
@@ -38,13 +41,16 @@ export const metadata: Metadata = {
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-background">
+    <main className="bg-[#180149]">
       <Navbar />
       <Hero />
+      <Marquee />
       <Features />
       <Archetypes />
+      <Verification />
+      <HackTheWorld />
+      <ProblemWeSolve />
       <HowItWorks />
-      <EventCallout />
       <FinalCta />
       <Footer />
     </main>

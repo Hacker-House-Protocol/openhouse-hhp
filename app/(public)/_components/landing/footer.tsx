@@ -59,9 +59,6 @@ export function Footer() {
 
         {/* Bottom line */}
         <div className="flex flex-col items-center gap-1">
-          <p className="text-muted-foreground text-sm">
-            Built by builders. For builders.
-          </p>
           <p className="font-mono text-xs text-muted-foreground">
             hackerhouse.app · © 2026 Hacker House Protocol
           </p>

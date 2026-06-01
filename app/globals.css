@@ -9,6 +9,15 @@
   50% { transform: translateY(-8px); }
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@utility animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
 @utility animate-float {
   animation: float 3.5s ease-in-out infinite;
 }
