@@ -1,191 +1,139 @@
 # Pitch v2 — Hacker House Protocol
-# Foco: Arbitrum Open House London Buildathon
+# Arbitrum Open House London Buildathon
 
 **Versión**: 2.2 · Mayo 2026
-**Contexto**: Pitch orientado al buildathon de Arbitrum. Protagonista: HackerHouses coordinadas on-chain. Comunidades como growth layer adicional.
+**Formato**: Slide por slide — listo para trasladar a presentación
 
 ---
 
-## One-liner
+## SLIDE 1 — Cover
 
-El lugar donde los builders encuentran su casa — y la coordinan on-chain.
+**Título:** Hacker House Protocol
 
----
+**Subtítulo:** El lugar donde los builders encuentran su casa — y la coordinan on-chain.
 
-## El problema
-
-Los builders Web3 viajan a los mismos eventos, en las mismas ciudades, en las mismas fechas. Siempre hay alguien dispuesto a organizar — pero incluso con un organizador responsable, el proceso es manual, frágil y sin garantías.
-
-El organizador persigue pagos uno a uno. Los builders envían fondos sin garantía de reembolso si la house no se llena. Las organizaciones que quieren patrocinar no tienen forma on-chain de comprometer fondos de forma transparente. Y cuando el evento termina, la comunidad desaparece.
-
-Cuatro problemas concretos:
-
-- **Coordinación** — Fragmentada en Telegram y Discord. Sin estructura, sin filtros, sin identidad persistente.
-- **Habilidades** — Claims manuales y no verificables. No hay forma de probar qué has construido o dónde has estado.
-- **Logística** — Sin infraestructura crypto-nativa para los tres modelos de house: copayment entre builders, sponsor de una organización, o staking como compromiso. Todo se resuelve con transferencias manuales y fe.
-- **Comunidad** — Se disuelve después del hackathon. Sin persistencia.
-
-El protocolo no reemplaza al organizador — le da la infraestructura para que su responsabilidad sea trustless, automática y verificable on-chain.
+**Contexto:** Arbitrum Open House London Online Buildathon
 
 ---
 
-## La solución
+## SLIDE 2 — Problem
 
-**Hacker House Protocol** es la plataforma donde los builders encuentran y se unen a Hacker Houses — espacios de co-living físico coordinados on-chain en Arbitrum.
+**Headline:** Coordinar una Hacker House no debería depender de la buena voluntad de nadie.
 
-Un builder entra, explora Hacker Houses por ubicación, fechas o perfil buscado, y aplica. Si es aceptado, el grupo hace pool de fondos en el smart contract: cada builder paga su parte on-chain. Los fondos se liberan al organizador solo si la house se completa. Si no se completa antes del deadline, el reembolso es automático — sin intermediarios, sin confianza ciega.
+- Los builders viajan a los mismos eventos pero no tienen dónde encontrarse de forma estructurada
+- Siempre hay un organizador responsable — pero el proceso es manual, frágil y sin garantías: persigue pagos, recibe fondos de fe, y no puede ofrecer reembolso automático si algo falla
+- No hay infraestructura crypto-nativa para los tres modelos reales: **copayment** entre builders, **sponsor** de una organización, o **staking** como compromiso
+- Las comunidades se disuelven después de cada evento — sin persistencia, sin identidad acumulada
 
-Lo que antes dependía de una persona de confianza, ahora lo ejecuta el contrato.
+**El protocolo no reemplaza al organizador — le da la infraestructura para que su responsabilidad sea trustless, automática y verificable on-chain.**
 
 ---
 
-## El framework
+## SLIDE 3 — Solution
 
-```
-MATCH  →  BUILD  →  CO-LIVE
-```
+**Headline:** MATCH → BUILD → CO-LIVE
 
 - **MATCH** — Conecta builders por identidad on-chain: POAPs, Talent Protocol skill tags, wallet con historial. Matching verificable, no auto-declarado.
 - **BUILD** — Hack Spaces para formar equipos y colaborar remotamente en proyectos reales.
-- **CO-LIVE** — Hacker Houses coordinadas on-chain. Pool de fondos vía smart contract en Arbitrum.
+- **CO-LIVE** — Hacker Houses coordinadas on-chain en Arbitrum. Pool de fondos vía smart contract. Sin intermediarios.
 
 ---
 
-## El flujo core
+## SLIDE 4 — How it works
+
+**Headline:** Del discovery al NFT de booking — todo on-chain.
 
 ```
 Builder entra → Explora Hacker Houses (ciudad, fecha, perfil)
       ↓
 Le interesa una → Aplica
       ↓
-Es aceptado → Hace su parte del pool en Arbitrum (fondos lockeados)
+Es aceptado → Hace su parte del pool en Arbitrum
       ↓
-House completa  →  fondos liberados al organizador  →  booking confirmado como NFT
-House no completa antes del deadline  →  refund automático a cada builder
+House completa  →  fondos al organizador  →  NFT de booking en tu wallet
+House no completa  →  refund automático a cada builder
 ```
 
-La booking confirmation es un NFT en Arbitrum con fechas, dirección y detalles del espacio. Las llaves de tu Hacker House viven on-chain.
+La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicación y detalles del espacio. Las llaves de tu casa viven on-chain.
 
 ---
 
-## El smart contract — HackerHouseEscrow.sol
+## SLIDE 5 — Smart Contract (El diferenciador Arbitrum)
 
-El contrato ejecuta la coordinación. Ningún intermediario humano toca los fondos.
+**Headline:** El contrato hace el trabajo que antes hacía la confianza ciega.
 
-| Acción | Quién | Qué ocurre on-chain |
+| Acción | Quién | Qué ocurre |
 |---|---|---|
-| `createHouse()` | Organizador | Define capacidad, precio por persona y deadline de llenado |
-| `deposit()` | Builder aceptado | Paga su parte del pool. Fondos lockeados en el contrato |
-| `release()` | Contrato (auto) | House completa: fondos liberados al organizador |
-| `refund()` | Contrato (auto) | Deadline sin completar: refund automático a cada depositor |
-| `reject()` | Organizador | Devuelve el deposit inmediatamente al builder rechazado |
-| `mintBookingNFT()` | Contrato (auto) | Al completarse el pool: mint de NFT de confirmación para cada builder |
+| `createHouse()` | Organizador | Define capacidad, precio y deadline |
+| `deposit()` | Builder aceptado | Paga su parte. Fondos lockeados |
+| `release()` | Contrato (auto) | House completa → fondos al organizador |
+| `refund()` | Contrato (auto) | Deadline sin completar → reembolso automático |
+| `mintBookingNFT()` | Contrato (auto) | Pool completo → NFT de confirmación a cada builder |
 
-**Por qué Arbitrum:** Gas fees bajos (crítico para deposits de co-living), EVM maduro, Privy ya lo soporta sin cambios en el stack de auth, y el buildathon es de Arbitrum.
+**Por qué Arbitrum:** Gas fees bajos (crítico para co-living), EVM maduro, Privy ya lo soporta.
 
 ---
 
-## Modelo de negocio
+## SLIDE 6 — Target Audience
+
+**Headline:** Para quien lo construimos.
+
+- Builders que viajan a hackathons y eventos Web3
+- Comunidades tech que se organizan alrededor de eventos
+- Organizaciones y DAOs que quieren patrocinar Hacker Houses
+- Equipos de startups y founders que necesitan coordinar co-living
+
+---
+
+## SLIDE 7 — Business Model
+
+**Headline:** Cómo genera valor el protocolo.
 
 | Fuente | Detalle |
 |---|---|
 | **Comisión del host** | 1% sobre el total coordinado por la plataforma |
-| **Yield del staking** | Los fondos lockeados generan yield mientras esperan el release (Fase 2) |
-| **Hacker Houses patrocinadas** | Organizaciones verificadas (DAOs, empresas) financian houses con su marca — Base House, Polygon Villa, Arbitrum House |
+| **Yield del staking** | Fondos lockeados generan yield mientras esperan el release |
+| **Houses patrocinadas** | DAOs y empresas financian houses con su marca — Base House, Arbitrum House |
 
 ---
 
-## Diferenciadores
+## SLIDE 8 — Traction / Estado actual
 
-### Pool de fondos on-chain, no wallet login decorativo
-La mayoría de los proyectos Web3 son apps con un botón de connect wallet. En HHP, Arbitrum ejecuta la lógica de negocio crítica: múltiples builders hacen pool de fondos on-chain para coordinar co-living real. Sin intermediarios.
+**Headline:** Ya construido. Esto es lo que falta.
 
-### Booking como NFT
-La confirmación de tu Hacker House es un NFT en Arbitrum con fechas, ubicación y detalles del espacio. Las llaves de tu casa viven on-chain — transferibles, verificables, permanentes.
+✅ Auth + Cypher Identity (perfil on-chain)
+✅ Hacker Houses — crear, listar, aplicar, gestionar
+✅ Builder Discovery + Matching algorítmico
+✅ Sistema de amistades + Notificaciones + Mapa interactivo
 
-### Identidad on-chain desde el primer día
-POAPs, Talent Protocol skill tags, wallet con historial. El matching usa datos verificables, no self-reported. Tu reputación se acumula con cada evento, cada co-living, cada contribución.
-
-### Comunidades como growth layer
-Además del flujo individual, comunidades organizadas (grupos regionales, DAOs, colectivos) pueden traer sus miembros en bloque vía invite link. No es el caso común — es el canal de adquisición que acelera el crecimiento inicial. Una comunidad confirmada lista para onboardear al lanzamiento.
-
-### Online y físico en una sola plataforma
-Hack Spaces para equipos remotos. Hacker Houses para co-living en eventos. Misma identidad, mismo algoritmo de matching, misma marca.
+🔨 Smart contract Arbitrum (pool + escrow + NFT de booking)
+🔨 Integración contrato ↔ UI de HackerHouses
+🔨 Comunidades — invite link, badge, filtros
 
 ---
 
-## El momento que lo hace real
-
-> "Éramos 4 builders yendo a ETHGlobal.
-> Creamos la Hacker House en el protocolo.
-> Cada uno pagó su parte on-chain.
-> Si no nos juntábamos los 4, recuperábamos todo automáticamente.
-> Nos juntamos. El NFT de booking llegó a nuestras wallets esa noche."
-
-Ese es el producto funcionando. Ese es el problema resuelto.
-
----
-
-## Por qué ahora
-
-**La identidad on-chain es real.** POAPs, Talent Protocol skill tags, wallets con historial. Por primera vez, saber quién es un builder no depende de lo que él mismo declara.
-
-**Los eventos Web3 son recurrentes y globales.** ETHGlobal, ETH LatAm, Devcon, eventos regionales. Hay demanda constante de coordinación física entre builders que ya se conocen online.
-
-**Arbitrum hace el pool de fondos accesible.** Gas fees bajos, EVM maduro. El contrato de coordinación es técnicamente posible y económicamente viable hoy.
-
----
-
-## Stack técnico
-
-| Capa | Tecnología |
-|---|---|
-| Smart contract | Solidity en Arbitrum One — escrow + pool de fondos + NFT de booking |
-| Auth | Privy — social login + embedded wallet + wallets externas |
-| Backend | Supabase — Postgres + RLS + Edge Functions |
-| Frontend | Next.js 16 App Router · React 19 · TypeScript · Tailwind CSS v4 |
-| Identidad on-chain | Talent Protocol · POAP · wallet address |
-
----
-
-## Estado actual
-
-| Feature | Estado |
-|---|---|
-| Auth + Cypher Identity (perfil on-chain) | ✅ Implementado |
-| Hacker Houses (crear, listar, aplicar, gestionar) | ✅ Implementado |
-| Builder Discovery + Matching algorítmico | ✅ Implementado |
-| Sistema de amistades + Notificaciones + Mapa | ✅ Implementado |
-| **Smart contract Arbitrum (pool + escrow + NFT)** | 🔨 En desarrollo — Semanas 1-2 |
-| **Integración contrato con UI de HackerHouses** | 🔨 En desarrollo — Semanas 2-3 |
-| **Comunidades (invite link, badge, filtros)** | 🔨 En desarrollo — Semana 1 |
-
----
-
-## Roadmap
+## SLIDE 9 — Roadmap
 
 | Fase | Foco |
 |---|---|
-| **Buildathon (ahora)** | Pool de fondos on-chain + NFT de booking + Comunidades como growth layer |
-| **Fase 2** | Yield del staking · Houses patrocinadas · Filtros on-chain (POAPs, NFTs, score) |
+| **Buildathon (ahora)** | Pool on-chain + NFT booking + Comunidades como growth layer |
+| **Fase 2** | Yield del staking · Houses patrocinadas · Filtros on-chain |
 | **V2** | Chat interno · Gobernanza de comunidades · Experiencia gamificada |
-| **V3** | ZK Matching privado · ZK Identity · Cross-chain |
+| **V3** | ZK Matching · ZK Identity · Cross-chain |
 
 ---
 
-## Métricas objetivo — 60 días post-buildathon
+## SLIDE 10 — CTA / Closing
 
-| Métrica | Target |
-|---|---|
-| Builders registrados | 200 |
-| Hacker Houses creadas | 15 |
-| Houses con pool on-chain completado | 8 |
-| ETH coordinado via contrato | 5 ETH |
-| Eventos cubiertos | 3 (ETHGlobal + 2 regionales) |
-| Comunidades onboarded | 3 |
+**Headline:** Let's redefine how builders travel, build, and co-live.
+
+> "Éramos 4 builders yendo a ETHGlobal.
+> Cada uno pagó su parte on-chain.
+> Si no llegábamos a 4, todo volvía automáticamente.
+> Llegamos. El NFT de booking apareció en nuestras wallets esa noche."
+
+**Join the protocol. Build your Hacker House.**
 
 ---
 
-## El ask
-
-Apoyo del ecosistema Arbitrum para lanzar el primer protocolo de pool de fondos y coordinación física para builders — y convertir cada evento Web3 en un punto de convergencia donde el grupo entero coordina, paga y confirma su casa on-chain.
+*Versión del pitch: 2.2 · Mayo 2026 · Para el plan de implementación ver `plan-buildathon.md`*
