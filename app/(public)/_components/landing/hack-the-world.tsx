@@ -1,7 +1,11 @@
 export function HackTheWorld() {
   return (
-    <section className="px-4 py-20 bg-[#180149] relative overflow-hidden">
-      <div className="max-w-6xl mx-auto">
+    <section
+      className="px-4 py-20 relative"
+      style={{ backgroundImage: "url('/bg-features-v1.jpg')", backgroundSize: "cover", backgroundPosition: "center" }}
+    >
+      <div className="absolute inset-0 bg-[#180149]/60" />
+      <div className="relative z-10 max-w-6xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left — text */}
           <div>

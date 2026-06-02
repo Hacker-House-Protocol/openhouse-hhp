@@ -29,8 +29,17 @@ const features = [
 
 export function Features() {
   return (
-    <section id="features" className="px-4 py-20 bg-[#180149]">
-      <div className="max-w-6xl mx-auto">
+    <section
+      id="features"
+      className="px-4 py-20 relative"
+      style={{
+        backgroundImage: "url('/bg-features-v1.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="absolute inset-0 bg-[#180149]/60" />
+      <div className="relative z-10 max-w-6xl mx-auto">
         <div className="text-center mb-14">
           <h2 className="font-display font-bold text-3xl md:text-4xl text-white">
             One protocol. Three ways to build.

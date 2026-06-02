@@ -7,6 +7,7 @@ import { Archetypes } from "./_components/landing/archetypes"
 import { Verification } from "./_components/landing/verification"
 import { HackTheWorld } from "./_components/landing/hack-the-world"
 import { ProblemWeSolve } from "./_components/landing/problem-we-solve"
+import { OurSolution } from "./_components/landing/our-solution"
 import { HowItWorks } from "./_components/landing/how-it-works"
 import { FinalCta } from "./_components/landing/final-cta"
 import { Footer } from "./_components/landing/footer"
@@ -50,6 +51,7 @@ export default function LandingPage() {
       <Verification />
       <HackTheWorld />
       <ProblemWeSolve />
+      <OurSolution />
       <HowItWorks />
       <FinalCta />
       <Footer />
