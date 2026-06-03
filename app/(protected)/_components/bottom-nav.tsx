@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Map, Plus, Users, User } from "lucide-react"
+import { Code2, Home, Map, Plus, Users } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { CreateModal } from "./create-modal"
@@ -17,8 +17,8 @@ interface NavTab {
 const NAV_TABS: NavTab[] = [
   { href: "/dashboard", label: "Home", icon: Home, exact: true },
   { href: "/dashboard/map", label: "Map", icon: Map },
-  { href: "/dashboard/builders", label: "Builders", icon: Users },
-  { href: "/dashboard/profile", label: "Profile", icon: User },
+  { href: "/dashboard/builders", label: "Network", icon: Users },
+  { href: "/dashboard/hacks", label: "Hacks", icon: Code2 },
 ]
 
 export function BottomNav() {
@@ -27,7 +27,11 @@ export function BottomNav() {
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href
-    return pathname === href || pathname.startsWith(href + "/")
+    if (pathname === href || pathname.startsWith(href + "/")) return true
+    if (href === "/dashboard/hacks") {
+      return pathname.startsWith("/dashboard/hack-spaces") || pathname.startsWith("/dashboard/hacker-houses")
+    }
+    return false
   }
 
   return (

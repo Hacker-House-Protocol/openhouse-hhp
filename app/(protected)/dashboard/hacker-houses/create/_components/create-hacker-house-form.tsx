@@ -12,6 +12,7 @@ import {
   type CreateHackerHouseInput,
   APPLICATION_TYPES,
   EVENT_TIMINGS,
+  HOUSE_MODALITIES,
 } from "@/lib/schemas/hacker-house"
 import { useUploadHackerHouseImage } from "@/services/api/hacker-houses"
 import { Button } from "@/components/ui/button"
@@ -55,6 +56,12 @@ const EVENT_TIMING_LABELS: Record<string, string> = {
   after: "After",
 }
 
+const MODALITY_OPTIONS: { value: string; title: string; description: string }[] = [
+  { value: "paid", title: "Co-Payment", description: "Split costs between all members" },
+  { value: "free", title: "Sponsored", description: "A sponsor covers the stay" },
+  { value: "staking", title: "Staking", description: "Stake crypto to reserve your spot" },
+]
+
 const AMENITY_OPTIONS: { key: keyof CreateHackerHouseInput; label: string; description: string }[] = [
   { key: "includes_private_room", label: "Private room", description: "Each member gets their own room" },
   { key: "includes_shared_room", label: "Shared room", description: "Members share bedrooms" },
@@ -67,7 +74,7 @@ const STEPS = ["House", "Amenities", "Community", "Access"] as const
 type Step = (typeof STEPS)[number]
 
 const STEP_FIELDS: Record<Step, (keyof CreateHackerHouseInput)[]> = {
-  House: ["name", "region", "country", "city"],
+  House: ["name", "modality", "region", "country", "city"],
   Amenities: ["start_date", "end_date", "capacity"],
   Community: ["profile_sought", "language"],
   Access: ["application_type", "application_deadline"],
@@ -75,6 +82,8 @@ const STEP_FIELDS: Record<Step, (keyof CreateHackerHouseInput)[]> = {
 
 const FIELD_TO_STEP: Partial<Record<keyof CreateHackerHouseInput, Step>> = {
   name: "House",
+  modality: "House",
+  sponsor_name: "House",
   region: "House",
   country: "House",
   city: "House",
@@ -172,6 +181,8 @@ export function CreateHackerHouseForm({
     resolver: zodResolver(createHackerHouseSchema),
     defaultValues: {
       name: "",
+      modality: "paid",
+      sponsor_name: "",
       region: "",
       country: "",
       city: "",
@@ -201,6 +212,7 @@ export function CreateHackerHouseForm({
   })
 
   const hasEvent = useWatch({ control, name: "has_event" })
+  const watchedModality = useWatch({ control, name: "modality" })
   const watchedRegion = useWatch({ control, name: "region" })
   const watchedCountry = useWatch({ control, name: "country" })
 
@@ -345,6 +357,64 @@ export function CreateHackerHouseForm({
                 </Field>
               )}
             />
+
+            <Controller
+              name="modality"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel>House type</FieldLabel>
+                  <FieldDescription>How will members pay for the stay?</FieldDescription>
+                  <RadioGroup
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    className="gap-2"
+                  >
+                    {MODALITY_OPTIONS.map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={cn(
+                          "w-full flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer",
+                          field.value === opt.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/40",
+                        )}
+                      >
+                        <RadioGroupItem value={opt.value} />
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground">
+                            {opt.title}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {opt.description}
+                          </span>
+                        </div>
+                      </label>
+                    ))}
+                  </RadioGroup>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            {watchedModality === "free" && (
+              <Controller
+                name="sponsor_name"
+                control={control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} optional>Sponsor name</FieldLabel>
+                    <FieldDescription>Who is sponsoring this house?</FieldDescription>
+                    <Input
+                      {...field}
+                      id={field.name}
+                      placeholder="e.g. Ethereum Foundation"
+                      maxLength={100}
+                    />
+                  </Field>
+                )}
+              />
+            )}
 
             <Controller
               name="region"

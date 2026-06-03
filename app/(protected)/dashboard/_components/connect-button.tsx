@@ -36,10 +36,11 @@ export function ConnectButton({ targetUserId }: ConnectButtonProps) {
     return (
       <Button
         type="button"
+        variant="outline"
         size="sm"
         disabled={sendRequest.isPending}
         onClick={() => sendRequest.mutate({ receiver_id: targetUserId })}
-        className="font-mono text-xs"
+        className="w-full rounded-full border-primary text-primary hover:bg-primary/10 text-sm font-medium"
       >
         {sendRequest.isPending ? (
           <>

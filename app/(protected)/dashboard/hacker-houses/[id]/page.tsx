@@ -24,8 +24,62 @@ import {
   MapPin,
   Sparkles,
   Home,
+  Wifi,
+  Utensils,
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Clock,
+  Lock,
+  Copy,
+  Check,
+  Gift,
 } from "lucide-react"
 import { BackButton } from "../../../_components/back-button"
+import type { HouseModality } from "@/lib/types"
+
+/* ── Mode config ── */
+const MODE_CONFIG: Record<
+  HouseModality,
+  {
+    label: string
+    badgeCls: string
+    ctaText: string
+    ctaCls: string
+    sectionTitle: string
+    costLabel: string
+    footerLabel: string
+  }
+> = {
+  paid: {
+    label: "Co-Payment",
+    badgeCls: "bg-primary text-primary-foreground",
+    ctaText: "Pay My Share",
+    ctaCls: "bg-builder-archetype text-background hover:opacity-90",
+    sectionTitle: "Payment Split",
+    costLabel: "per person",
+    footerLabel: "My Share Total",
+  },
+  free: {
+    label: "Sponsored",
+    badgeCls: "bg-builder-archetype text-background",
+    ctaText: "Apply to Join",
+    ctaCls: "bg-builder-archetype text-background hover:opacity-90",
+    sectionTitle: "Spots Status",
+    costLabel: "Application",
+    footerLabel: "Application",
+  },
+  staking: {
+    label: "Staking",
+    badgeCls: "bg-strategist text-strategist-foreground",
+    ctaText: "Stake to Join",
+    ctaCls: "bg-builder-archetype text-background hover:opacity-90",
+    sectionTitle: "Staking Pool",
+    costLabel: "Stake Amount",
+    footerLabel: "Stake Amount",
+  },
+}
 
 const STATUS_CONFIG = {
   open: {
@@ -33,65 +87,52 @@ const STATUS_CONFIG = {
     badgeCls: "border-primary text-primary bg-primary/10",
     textCls: "text-primary",
     dotCls: "bg-primary",
-    colorVar: "--primary",
   },
   full: {
     label: "Full",
     badgeCls: "border-builder-archetype text-builder-archetype bg-builder-archetype/10",
     textCls: "text-builder-archetype",
     dotCls: "bg-builder-archetype",
-    colorVar: "--builder-archetype",
   },
   active: {
     label: "Active",
     badgeCls: "border-strategist text-strategist bg-strategist/10",
     textCls: "text-strategist",
     dotCls: "bg-strategist",
-    colorVar: "--strategist",
   },
   finished: {
     label: "Finished",
     badgeCls: "border-muted-foreground text-muted-foreground bg-muted",
     textCls: "text-muted-foreground",
     dotCls: "bg-muted-foreground",
-    colorVar: "--muted-foreground",
   },
 } as const
 
 type HouseStatus = keyof typeof STATUS_CONFIG
 
+const INCLUDES_ICONS = [
+  { key: "includes_private_room", icon: Home, label: "Private room" },
+  { key: "includes_shared_room", icon: Home, label: "Shared room" },
+  { key: "includes_meals", icon: Utensils, label: "Meals" },
+  { key: "includes_workspace", icon: Briefcase, label: "Workspace" },
+  { key: "includes_internet", icon: Wifi, label: "WiFi" },
+] as const
+
 function formatDateRange(start: string, end: string): string {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  return `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+  const s = new Date(start)
+  const e = new Date(end)
+  return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
 }
 
-function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <h2 className={cn("text-xs font-mono text-muted-foreground uppercase tracking-widest", className)}>
-      {children}
-    </h2>
-  )
-}
-
-function DetailRow({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-2 text-muted-foreground font-mono">
-        {icon}
-        {label}
-      </span>
-      <span className="text-foreground font-mono text-right">{children}</span>
-    </div>
-  )
+function getCostDisplay(modality: HouseModality, capacity: number) {
+  switch (modality) {
+    case "paid":
+      return { costPerPerson: "256 USDC", totalAmount: `${256 * capacity} USDC`, amountRaised: "TBD" }
+    case "free":
+      return { costPerPerson: "Free", totalAmount: "Sponsored", amountRaised: "Sponsored" }
+    case "staking":
+      return { costPerPerson: "0.08 ETH", totalAmount: `${(0.08 * capacity).toFixed(2)} ETH`, amountRaised: "TBD" }
+  }
 }
 
 export default function HackerHouseDetailPage({
@@ -104,33 +145,26 @@ export default function HackerHouseDetailPage({
   const { data: profile } = useProfile({ enabled: true })
   const apply = useApplyToHackerHouse(id)
   const updateHackerHouse = useUpdateHackerHouse(id)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [showGallery, setShowGallery] = useState(false)
   const [showApplyForm, setShowApplyForm] = useState(false)
   const [message, setMessage] = useState("")
+  const [linkCopied, setLinkCopied] = useState(false)
 
   if (isLoading) {
     return (
       <PageContainer>
-        <Skeleton className="h-4 w-28 mb-6" />
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-          <div className="flex flex-col gap-8">
-            <Skeleton className="h-60 rounded-xl" />
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
+        <Skeleton className="h-72 w-full rounded-none" />
+        <div className="p-6 flex flex-col gap-6">
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            ))}
           </div>
-          <aside>
-            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
-              <Skeleton className="h-3 w-16" />
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex justify-between">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              ))}
-            </div>
-          </aside>
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
         </div>
       </PageContainer>
     )
@@ -151,242 +185,361 @@ export default function HackerHouseDetailPage({
   }
 
   const isOwner = profile?.id === hackerHouse.creator.id
-  const creatorArchetype = ARCHETYPES.find((a) => a.id === hackerHouse.creator.archetype)
+  const modeCfg = MODE_CONFIG[hackerHouse.modality] ?? MODE_CONFIG.paid
   const statusCfg = STATUS_CONFIG[hackerHouse.status as HouseStatus] ?? STATUS_CONFIG.open
   const canApply = !isOwner && hackerHouse.status === "open"
-
-  const slots = Array.from({ length: Math.min(hackerHouse.capacity, 10) })
-  const filledCount = hackerHouse.participants_count
-
-  // Participants for display: creator first + accepted
   const allParticipants = [hackerHouse.creator, ...(hackerHouse.participants ?? [])]
+  const filledCount = hackerHouse.participants_count
+  const progress = hackerHouse.capacity > 0 ? Math.round((filledCount / hackerHouse.capacity) * 100) : 0
+  const costInfo = getCostDisplay(hackerHouse.modality, hackerHouse.capacity)
+  const images = hackerHouse.images.length > 0
+    ? hackerHouse.images
+    : ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop"]
+
+  const activeIncludes = INCLUDES_ICONS.filter(
+    (inc) => hackerHouse[inc.key as keyof typeof hackerHouse],
+  )
+
+  function nextImage() {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length)
+  }
+  function prevImage() {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+  }
 
   function handleStatusChange(newStatus: HouseStatus) {
     updateHackerHouse.mutate({ status: newStatus })
   }
 
+  function handleCopyLink() {
+    navigator.clipboard.writeText(window.location.href)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
   return (
-    <PageContainer>
-      {/* Mobile back button */}
-      <BackButton href="/dashboard/hacker-houses" />
+    <PageContainer className="!p-0 !pt-0">
+      <div className="max-w-4xl mx-auto pb-32">
+        {/* ── Image Carousel ── */}
+        <div className="relative h-72 md:h-96 w-full bg-card overflow-hidden">
+          <img
+            src={images[currentImageIndex]}
+            alt={`${hackerHouse.name} - Image ${currentImageIndex + 1}`}
+            className="w-full h-full object-cover"
+          />
 
-      {/* Navigation (desktop) */}
-      <div className="hidden md:block mb-6">
-        <Link
-          href="/dashboard/hacker-houses"
-          className="text-muted-foreground hover:text-foreground transition-colors font-mono text-sm"
-        >
-          ← Hacker Houses
-        </Link>
-      </div>
+          {/* Nav arrows */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 -translate-y-1/2 size-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+              >
+                <ChevronLeft className="size-6" />
+              </button>
+              <button
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 -translate-y-1/2 size-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+              >
+                <ChevronRight className="size-6" />
+              </button>
+            </>
+          )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-        {/* ── Main content ── */}
-        <div className="flex flex-col gap-6">
-          {/* Hero card */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col gap-0">
-            <div className="relative h-60 w-full overflow-hidden">
-              {hackerHouse.images[0] ? (
-                <img
-                  src={hackerHouse.images[0]}
-                  alt={hackerHouse.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-linear-to-br from-primary/20 via-muted to-card" />
-              )}
-              <div className="absolute inset-0 bg-linear-to-t from-card to-transparent" />
-            </div>
-
-            <div className="p-6 flex flex-col gap-4">
-              <div className="flex items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <h1 className="font-display font-bold text-foreground text-2xl leading-snug">
-                      {hackerHouse.name}
-                    </h1>
-                    <span
-                      className={cn(
-                        "shrink-0 text-xs px-2.5 py-1 rounded-sm border font-mono whitespace-nowrap mt-1",
-                        statusCfg.badgeCls,
-                      )}
-                    >
-                      {statusCfg.label}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap text-sm font-mono mt-1.5">
-                    <MapPin className="size-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-muted-foreground">
-                      {hackerHouse.city}, {hackerHouse.country}
-                    </span>
-                    {hackerHouse.neighborhood && (
-                      <span className="text-muted-foreground">· {hackerHouse.neighborhood}</span>
-                    )}
-                    <span className="text-muted-foreground">· by</span>
-                    <Link
-                      href={`/dashboard/builders/${hackerHouse.creator.handle}`}
-                      className="text-foreground font-medium hover:text-primary transition-colors"
-                    >
-                      @{hackerHouse.creator.handle ?? "anon"}
-                    </Link>
-                    {creatorArchetype && (
-                      <span style={{ color: `var(${creatorArchetype.colorVar})` }}>
-                        · {creatorArchetype.label}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Event badge */}
-              {hackerHouse.event_name && (
-                <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                  <CalendarDays className="size-4 text-primary shrink-0" />
-                  <span className="text-sm font-mono text-primary">
-                    For {hackerHouse.event_name}
-                    {hackerHouse.event_timing && hackerHouse.event_timing.length > 0 &&
-                      ` · ${hackerHouse.event_timing.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")} the event`}
-                    {hackerHouse.event_start_date && (
-                      <>
-                        {" · "}
-                        {hackerHouse.event_end_date
-                          ? `${new Date(hackerHouse.event_start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${new Date(hackerHouse.event_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                          : new Date(hackerHouse.event_start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </>
-                    )}
-                  </span>
-                  {hackerHouse.event_url && (
-                    <a
-                      href={hackerHouse.event_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-auto text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <ExternalLink className="size-3.5" />
-                    </a>
+          {/* Image indicators */}
+          {images.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentImageIndex(idx)}
+                  className={cn(
+                    "size-2 rounded-full transition-colors",
+                    idx === currentImageIndex ? "bg-white" : "bg-white/50",
                   )}
-                </div>
-              )}
-
-              {/* Owner actions */}
-              {isOwner && (
-                <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <Link href={`/dashboard/hacker-houses/${id}/edit`}>
-                    <Button variant="outline" size="sm" className="font-mono text-xs gap-1.5">
-                      <PenLine className="size-3.5" />
-                      Edit
-                    </Button>
-                  </Link>
-                  {hackerHouse.status === "open" || hackerHouse.status === "full" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="font-mono text-xs gap-1.5"
-                      onClick={() => handleStatusChange("active")}
-                      disabled={updateHackerHouse.isPending}
-                    >
-                      <Sparkles className="size-3.5" />
-                      Mark as active
-                    </Button>
-                  ) : null}
-                  {hackerHouse.status === "active" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="font-mono text-xs gap-1.5"
-                      onClick={() => handleStatusChange("finished")}
-                      disabled={updateHackerHouse.isPending}
-                    >
-                      Mark as finished
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Image gallery strip */}
-          {hackerHouse.images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              {hackerHouse.images.slice(1).map((img, i) => (
-                <img
-                  key={i}
-                  src={img}
-                  alt={`Photo ${i + 2}`}
-                  className="h-16 w-24 object-cover rounded-lg shrink-0 border border-border"
                 />
               ))}
             </div>
           )}
 
-          {/* House rules */}
+          {/* Mode badge */}
+          <div className={cn("absolute top-4 left-4 px-3 py-1.5 rounded-full text-sm font-medium", modeCfg.badgeCls)}>
+            {hackerHouse.modality === "paid"
+              ? `${costInfo.costPerPerson}/person`
+              : hackerHouse.modality === "free"
+                ? "Free · Sponsored"
+                : `${costInfo.costPerPerson} stake`}
+          </div>
+
+          {/* Event badge */}
+          {hackerHouse.event_name && (
+            <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-strategist rounded-full text-white text-sm">
+              <CalendarDays className="size-4" />
+              {hackerHouse.event_name}
+            </div>
+          )}
+
+          {/* View all photos */}
+          {images.length > 1 && (
+            <button
+              onClick={() => setShowGallery(true)}
+              className="absolute bottom-4 right-4 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-background text-sm font-medium hover:bg-white transition-colors"
+            >
+              View all photos
+            </button>
+          )}
+
+        </div>
+
+        <div className="p-4 sm:p-6">
+          {/* ── Title Section ── */}
+          <div className="mb-6">
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground">
+                {hackerHouse.name}
+              </h1>
+              <span
+                className={cn(
+                  "shrink-0 text-xs px-2.5 py-1 rounded-sm border font-mono whitespace-nowrap mt-1",
+                  statusCfg.badgeCls,
+                )}
+              >
+                {statusCfg.label}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm mb-3">
+              <MapPin className="size-4" />
+              <span>
+                {hackerHouse.neighborhood && `${hackerHouse.neighborhood}, `}
+                {hackerHouse.city}, {hackerHouse.country}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <CalendarDays className="size-4" />
+              <span>{formatDateRange(hackerHouse.start_date, hackerHouse.end_date)}</span>
+            </div>
+
+            <p className="text-muted-foreground">
+              Hosted by{" "}
+              <Link
+                href={`/dashboard/builders/${hackerHouse.creator.handle}`}
+                className="text-foreground font-medium hover:text-primary transition-colors"
+              >
+                @{hackerHouse.creator.handle ?? "anon"}
+              </Link>
+            </p>
+          </div>
+
+          {/* Owner actions */}
+          {isOwner && (
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border">
+              <Link href={`/dashboard/hacker-houses/${id}/edit`}>
+                <Button variant="outline" size="sm" className="font-mono text-xs gap-1.5 rounded-full">
+                  <PenLine className="size-3.5" />
+                  Edit
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-mono text-xs gap-1.5 rounded-full"
+                onClick={handleCopyLink}
+              >
+                {linkCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                {linkCopied ? "Copied!" : "Share link"}
+              </Button>
+              {(hackerHouse.status === "open" || hackerHouse.status === "full") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-mono text-xs gap-1.5 rounded-full"
+                  onClick={() => handleStatusChange("active")}
+                  disabled={updateHackerHouse.isPending}
+                >
+                  <Sparkles className="size-3.5" />
+                  Mark as active
+                </Button>
+              )}
+              {hackerHouse.status === "active" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-mono text-xs gap-1.5 rounded-full"
+                  onClick={() => handleStatusChange("finished")}
+                  disabled={updateHackerHouse.isPending}
+                >
+                  Mark as finished
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* ── Quick Info Cards (includes) ── */}
+          {activeIncludes.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {activeIncludes.map(({ key, icon: Icon, label }) => (
+                <div
+                  key={key}
+                  className="flex flex-col items-center gap-2 p-4 bg-card border border-border rounded-xl"
+                >
+                  <Icon className="size-6 text-primary" />
+                  <span className="text-foreground text-sm text-center">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Sponsor Card (free/sponsored houses) ── */}
+          {hackerHouse.modality === "free" && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-builder-archetype/20 to-builder-archetype/10 border border-builder-archetype/50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="size-12 bg-builder-archetype rounded-xl flex items-center justify-center">
+                  <Gift className="size-6 text-background" />
+                </div>
+                <div>
+                  <p className="text-builder-archetype text-sm font-medium">Sponsored by</p>
+                  <h3 className="font-display font-bold text-foreground">
+                    {hackerHouse.sponsor_name || "Community Sponsor"}
+                  </h3>
+                </div>
+              </div>
+              <p className="text-muted-foreground text-sm mt-3">
+                All accommodation and meals are covered by the sponsor. Focus on building!
+              </p>
+            </div>
+          )}
+
+          {/* ── House rules as amenities ── */}
           {hackerHouse.house_rules && (
-            <section className="flex flex-col gap-2">
-              <SectionLabel>House rules</SectionLabel>
-              <p className="text-foreground leading-relaxed whitespace-pre-wrap text-sm">
+            <div className="mb-6">
+              <h2 className="font-display font-bold text-lg text-foreground mb-3">House Rules</h2>
+              <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
                 {hackerHouse.house_rules}
               </p>
-            </section>
+            </div>
           )}
 
-          {/* Amenities */}
-          {(hackerHouse.includes_private_room ||
-            hackerHouse.includes_shared_room ||
-            hackerHouse.includes_meals ||
-            hackerHouse.includes_workspace ||
-            hackerHouse.includes_internet) && (
-            <section className="flex flex-col gap-2">
-              <SectionLabel>Includes</SectionLabel>
-              <div className="flex flex-wrap gap-2">
-                {hackerHouse.includes_private_room && (
-                  <span className="text-sm px-3 py-1.5 rounded-lg border border-border bg-muted text-foreground font-mono">
-                    Private room
-                  </span>
-                )}
-                {hackerHouse.includes_shared_room && (
-                  <span className="text-sm px-3 py-1.5 rounded-lg border border-border bg-muted text-foreground font-mono">
-                    Shared room
-                  </span>
-                )}
-                {hackerHouse.includes_meals && (
-                  <span className="text-sm px-3 py-1.5 rounded-lg border border-border bg-muted text-foreground font-mono">
-                    Meals
-                  </span>
-                )}
-                {hackerHouse.includes_workspace && (
-                  <span className="text-sm px-3 py-1.5 rounded-lg border border-border bg-muted text-foreground font-mono">
-                    Workspace
-                  </span>
-                )}
-                {hackerHouse.includes_internet && (
-                  <span className="text-sm px-3 py-1.5 rounded-lg border border-border bg-muted text-foreground font-mono">
-                    Internet
-                  </span>
+          {/* ── Event Link Card ── */}
+          {hackerHouse.event_name && (
+            <div className="mb-8 p-4 bg-gradient-to-r from-primary/20 to-strategist/20 border border-primary/50 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="size-12 bg-primary rounded-xl flex items-center justify-center">
+                    <CalendarDays className="size-6 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-foreground">{hackerHouse.event_name}</h3>
+                    <p className="text-muted-foreground text-sm">
+                      {hackerHouse.event_start_date &&
+                        new Date(hackerHouse.event_start_date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      {hackerHouse.event_end_date &&
+                        `–${new Date(hackerHouse.event_end_date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}`}
+                      {hackerHouse.event_timing &&
+                        hackerHouse.event_timing.length > 0 &&
+                        ` · ${hackerHouse.event_timing.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(", ")} the event`}
+                    </p>
+                  </div>
+                </div>
+                {hackerHouse.event_url && (
+                  <a
+                    href={hackerHouse.event_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-primary text-sm hover:underline"
+                  >
+                    View <ExternalLink className="size-4" />
+                  </a>
                 )}
               </div>
-            </section>
+            </div>
           )}
 
-          {/* Participants section */}
-          {allParticipants.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <SectionLabel>
-                Participants ({hackerHouse.participants_count}/{hackerHouse.capacity})
-              </SectionLabel>
-              <div className="flex flex-wrap gap-3">
-                {allParticipants.map((p, i) => {
-                  const archetype = ARCHETYPES.find((a) => a.id === p.archetype)
-                  const isCreator = p.id === hackerHouse.creator.id
-                  return (
-                    <div key={p.id ?? i} className="flex flex-col items-center gap-1.5">
+          {/* ── Payment Split / Spots Status / Staking Pool ── */}
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-lg text-foreground">{modeCfg.sectionTitle}</h2>
+              <div className="text-right">
+                {hackerHouse.modality === "paid" && (
+                  <>
+                    <p className="text-builder-archetype font-bold">
+                      {filledCount * 256} USDC
+                    </p>
+                    <p className="text-muted-foreground text-xs">of {costInfo.totalAmount}</p>
+                  </>
+                )}
+                {hackerHouse.modality === "free" && (
+                  <p className="text-builder-archetype font-bold">Sponsored</p>
+                )}
+                {hackerHouse.modality === "staking" && (
+                  <>
+                    <p className="text-builder-archetype font-bold">
+                      {(filledCount * 0.08).toFixed(2)} ETH staked
+                    </p>
+                    <p className="text-muted-foreground text-xs">of {costInfo.totalAmount}</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-5">
+              {/* Progress bar */}
+              <div className="mb-4">
+                <div className="h-2 bg-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-strategist rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-foreground">
+                  <span className="font-bold text-xl">{filledCount}</span>
+                  <span className="text-muted-foreground"> / {hackerHouse.capacity} hackers</span>
+                </p>
+                <div className="text-right">
+                  <p className="text-foreground font-bold">{costInfo.costPerPerson}</p>
+                  <p className="text-muted-foreground text-xs">{modeCfg.costLabel}</p>
+                </div>
+              </div>
+
+              {hackerHouse.modality === "staking" && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-strategist/10 border border-strategist/30 rounded-lg text-strategist text-sm">
+                  <Lock className="size-4" />
+                  Stake is locked until checkout. Returned if house doesn&apos;t fill.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* ── Added Hacker Homies ── */}
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-lg text-foreground">Added Hacker Homies</h2>
+              <span className="text-muted-foreground text-sm">{allParticipants.length} hackers</span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {allParticipants.map((p, i) => {
+                const archetype = ARCHETYPES.find((a) => a.id === p.archetype)
+                const isCreator = p.id === hackerHouse.creator.id
+                return (
+                  <div
+                    key={p.id ?? i}
+                    className="flex items-center justify-between bg-card border border-border rounded-xl p-4"
+                  >
+                    <div className="flex items-center gap-3">
                       <div
-                        className="size-12 rounded-full overflow-hidden border-2 bg-muted flex items-center justify-center"
-                        style={
-                          archetype
-                            ? { borderColor: `var(${archetype.colorVar})` }
-                            : { borderColor: "var(--border)" }
-                        }
+                        className="size-12 rounded-full border-2 overflow-hidden flex items-center justify-center bg-muted"
+                        style={{
+                          borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)",
+                        }}
                       >
                         {p.avatar_url ? (
                           <img
@@ -400,22 +553,115 @@ export default function HackerHouseDetailPage({
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] font-mono text-muted-foreground text-center max-w-15 truncate">
-                        {isCreator ? "Host" : `@${p.handle ?? "anon"}`}
+                      <div>
+                        <p className="font-medium text-foreground">
+                          @{p.handle ?? "anon"}
+                          {isCreator && (
+                            <span className="ml-2 text-xs text-primary font-mono">Host</span>
+                          )}
+                        </p>
+                        {archetype && (
+                          <p className="text-xs" style={{ color: `var(${archetype.colorVar})` }}>
+                            {archetype.label}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm">
+                        Pending
                       </span>
                     </div>
-                  )
-                })}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* ── Who this is for ── */}
+          {hackerHouse.profile_sought.length > 0 && (
+            <section className="mb-8">
+              <h2 className="font-display font-bold text-lg text-foreground mb-4">Who this is for</h2>
+              <div className="flex flex-wrap gap-2">
+                {hackerHouse.profile_sought.map((profile) => (
+                  <span
+                    key={profile}
+                    className="px-4 py-2 bg-primary/20 text-strategist rounded-full text-sm font-medium"
+                  >
+                    {profile}
+                  </span>
+                ))}
               </div>
             </section>
           )}
 
-          {/* Apply section (non-owner, status=open) */}
+          {/* ── Details sidebar (inline on mobile) ── */}
+          <section className="mb-8">
+            <h2 className="font-display font-bold text-lg text-foreground mb-4">Details</h2>
+            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <CalendarDays className="size-4" /> Dates
+                </span>
+                <span className="text-foreground font-medium">
+                  {formatDateRange(hackerHouse.start_date, hackerHouse.end_date)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Globe className="size-4" /> Language
+                </span>
+                <span className="text-foreground font-medium">
+                  {hackerHouse.language.join(", ")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Home className="size-4" /> Access
+                </span>
+                <span className="text-foreground font-medium capitalize">
+                  {hackerHouse.application_type.replace("_", " ")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Users className="size-4" /> Capacity
+                </span>
+                <span className="text-foreground font-medium">
+                  {filledCount}/{hackerHouse.capacity} spots
+                </span>
+              </div>
+              {hackerHouse.application_deadline && (
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="size-4" /> Deadline
+                  </span>
+                  <span className="text-foreground font-medium">
+                    {new Date(hackerHouse.application_deadline).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Sparkles className="size-4" /> Modality
+                </span>
+                <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium", modeCfg.badgeCls)}>
+                  {modeCfg.label}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Apply section (non-owner, inline) ── */}
           {canApply && (
-            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
-              <SectionLabel>Apply to join</SectionLabel>
+            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 mb-8">
+              <h2 className="font-display font-bold text-foreground">Apply to join</h2>
               {apply.isSuccess ? (
-                <p className="text-sm font-mono text-primary">
+                <p className="text-sm text-primary">
                   Application sent! The host will review it.
                 </p>
               ) : showApplyForm ? (
@@ -455,86 +701,80 @@ export default function HackerHouseDetailPage({
                     </Button>
                   </div>
                 </div>
-              ) : (
-                <Button
-                  onClick={() => setShowApplyForm(true)}
-                  className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 w-fit"
-                >
-                  Apply to join →
-                </Button>
-              )}
+              ) : null}
             </div>
           )}
 
-          {/* Applications manager (owner only) */}
+          {/* ── Applications manager (owner only) ── */}
           {isOwner && (
-            <section className="flex flex-col gap-4 pt-2">
-              <SectionLabel className="border-t border-border pt-4">Applications</SectionLabel>
+            <section className="mb-8">
+              <h2 className="font-display font-bold text-lg text-foreground mb-4">Applications</h2>
               <HackerHouseApplicationManager hackerHouseId={id} />
             </section>
           )}
         </div>
 
-        {/* ── Sidebar ── */}
-        <aside className="flex flex-col gap-4">
-          {/* Details card */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-border">
-              <SectionLabel>Details</SectionLabel>
-            </div>
-            <div className="p-5 flex flex-col gap-3 text-sm">
-              <DetailRow icon={<CalendarDays className="size-3.5" />} label="Dates">
-                {formatDateRange(hackerHouse.start_date, hackerHouse.end_date)}
-              </DetailRow>
-              <DetailRow icon={<Globe className="size-3.5" />} label="Language">
-                {hackerHouse.language.join(", ")}
-              </DetailRow>
-              {hackerHouse.neighborhood && (
-                <DetailRow icon={<MapPin className="size-3.5" />} label="Zone">
-                  {hackerHouse.neighborhood}
-                </DetailRow>
-              )}
-              <DetailRow icon={<Home className="size-3.5" />} label="Access">
-                <span className="capitalize">
-                  {hackerHouse.application_type.replace("_", " ")}
-                </span>
-              </DetailRow>
-              {hackerHouse.application_deadline && (
-                <DetailRow icon={<CalendarDays className="size-3.5" />} label="Deadline">
-                  {new Date(hackerHouse.application_deadline).toLocaleDateString()}
-                </DetailRow>
+        {/* ── Sticky Footer CTA ── */}
+        {hackerHouse.status !== "finished" && (
+          <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-60 bg-background/95 backdrop-blur-sm border-t border-border p-4 z-40">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+              <div>
+                <p className="text-foreground font-bold text-lg">{costInfo.costPerPerson}</p>
+                <p className="text-muted-foreground text-sm">{modeCfg.footerLabel}</p>
+              </div>
+              {hackerHouse.modality === "free" ? (
+                <button
+                  onClick={() => setShowApplyForm(true)}
+                  className={cn(
+                    "flex-1 max-w-xs py-4 px-6 font-bold rounded-full transition-opacity flex items-center justify-center gap-2",
+                    modeCfg.ctaCls,
+                  )}
+                >
+                  {modeCfg.ctaText}
+                </button>
+              ) : (
+                <Link
+                  href={`/dashboard/hacker-houses/${id}/payment`}
+                  className={cn(
+                    "flex-1 max-w-xs py-4 px-6 font-bold rounded-full transition-opacity flex items-center justify-center gap-2",
+                    modeCfg.ctaCls,
+                  )}
+                >
+                  {hackerHouse.modality === "staking" && <Lock className="size-4" />}
+                  {modeCfg.ctaText}
+                </Link>
               )}
             </div>
           </div>
+        )}
 
-          {/* Capacity card */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-border">
-              <SectionLabel>Capacity</SectionLabel>
+        {/* ── Full Gallery Modal ── */}
+        {showGallery && (
+          <div className="fixed inset-0 z-50 bg-background flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-display font-bold text-lg text-foreground">All Photos</h3>
+              <button
+                onClick={() => setShowGallery(false)}
+                className="size-10 bg-card rounded-full flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="size-5" />
+              </button>
             </div>
-            <div className="p-5 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <Users className="size-4 text-muted-foreground" />
-                <span className={cn("font-mono text-sm font-medium", statusCfg.textCls)}>
-                  {filledCount}/{hackerHouse.capacity} spots
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {slots.map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn("size-3 rounded-full transition-colors", i < filledCount ? statusCfg.dotCls : "bg-border")}
-                  />
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+                {images.map((image, idx) => (
+                  <div key={idx} className="relative aspect-video rounded-xl overflow-hidden">
+                    <img
+                      src={image}
+                      alt={`${hackerHouse.name} - Image ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 ))}
-                {hackerHouse.capacity > 10 && (
-                  <span className="text-[10px] font-mono text-muted-foreground ml-1">
-                    +{hackerHouse.capacity - 10}
-                  </span>
-                )}
               </div>
             </div>
           </div>
-        </aside>
+        )}
       </div>
     </PageContainer>
   )

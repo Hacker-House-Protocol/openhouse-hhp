@@ -84,9 +84,9 @@ export function HackerHouseCard({ hackerHouse, currentUserId }: HackerHouseCardP
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col hover:border-primary/30 transition-all duration-200 h-full">
+    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col hover:border-primary/30 transition-all duration-200 h-full">
       {/* Image carousel */}
-      <div className="relative h-52 w-full overflow-hidden group/img">
+      <div className="relative h-32 w-full overflow-hidden group/img">
         {images.length > 0 ? (
           <>
             {images.map((src, i) => (
@@ -156,7 +156,7 @@ export function HackerHouseCard({ hackerHouse, currentUserId }: HackerHouseCardP
         )}
       </div>
 
-      <div className="p-5 flex flex-col gap-3">
+      <div className="p-4 flex flex-col gap-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">

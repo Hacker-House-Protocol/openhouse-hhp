@@ -1,13 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { ArrowRight } from "lucide-react"
 import { useSuggestedBuilders } from "@/services/api/profile"
 import { useProfile } from "@/services/api/profile"
 import { BuilderCard } from "./builder-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
-const PREVIEW_LIMIT = 6
+const PREVIEW_LIMIT = 4
 
 export function SuggestedBuildersFeed() {
   const { data: profile } = useProfile()
@@ -22,13 +23,13 @@ export function SuggestedBuildersFeed() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-display font-bold text-foreground text-lg">Suggested Builders</h2>
+        <h2 className="font-display font-bold text-foreground text-lg">Builders you might know</h2>
         {unique.length > 0 && (
           <Link
             href="/dashboard/builders"
-            className="text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
+            className="text-primary text-sm font-medium flex items-center gap-1"
           >
-            View all →
+            See all <ArrowRight className="size-4" />
           </Link>
         )}
       </div>
@@ -36,10 +37,10 @@ export function SuggestedBuildersFeed() {
       {/* Content */}
       {isLoading ? (
         <ScrollArea>
-          <div className="flex gap-3 pb-3 w-max">
+          <div className="flex gap-4 pb-3 w-max lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-[70vw] sm:w-[35vw] lg:w-[22vw] shrink-0">
-                <div className="bg-card border border-border rounded-xl p-5 flex flex-col items-center gap-3 h-[240px]">
+              <div key={i} className="min-w-[200px] lg:min-w-0 shrink-0">
+                <div className="bg-card border border-border rounded-lg p-4 flex flex-col items-center gap-3 h-[240px]">
                   <Skeleton className="size-16 rounded-full" />
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-5 w-16 rounded-sm" />
@@ -59,10 +60,10 @@ export function SuggestedBuildersFeed() {
         </div>
       ) : (
         <ScrollArea>
-          <div className="flex gap-3 pb-3 w-max">
+          <div className="flex gap-4 pb-3 w-max lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
             {preview.map((builder) => (
-              <div key={builder.id} className="w-[70vw] sm:w-[35vw] lg:w-[22vw] shrink-0">
-                <BuilderCard builder={builder} currentUserId={profile?.id} showMatchInfo />
+              <div key={builder.id} className="min-w-[200px] lg:min-w-0 shrink-0">
+                <BuilderCard builder={builder} currentUserId={profile?.id} />
               </div>
             ))}
           </div>

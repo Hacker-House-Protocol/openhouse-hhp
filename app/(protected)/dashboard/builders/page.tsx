@@ -139,7 +139,6 @@ export default function BuildersPage() {
                 <BuilderCard
                   builder={builder}
                   currentUserId={profile?.id}
-                  showMatchInfo
                 />
               </div>
             ))}

@@ -4,18 +4,17 @@ import Link from "next/link"
 import { Bell } from "lucide-react"
 import { NotificationBadge } from "../_components/notification-badge"
 import { useProfile } from "@/services/api/profile"
-import { LoadingScreen } from "@/components/loading-screen"
 import { HackSpacesFeed } from "./_components/hack-spaces-feed"
 import { HackerHousesFeed } from "./_components/hacker-houses-feed"
 import { SuggestedBuildersFeed } from "./_components/suggested-builders-feed"
 import { PageContainer } from "./_components/page-container"
+import { WelcomeHeader } from "./_components/welcome-header"
+import { ContextBanner } from "./_components/context-banner"
+import { UpcomingEventsFeed } from "./_components/upcoming-events-feed"
+import { ActiveCitiesSection } from "./_components/active-cities-section"
 
 export default function DashboardPage() {
   const { data: profile } = useProfile()
-
-  if (!profile) {
-    return <LoadingScreen message="Loading" />
-  }
 
   return (
     <PageContainer>
@@ -39,9 +38,13 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex flex-col gap-8">
-        <HackSpacesFeed currentUserId={profile.id} />
-        <HackerHousesFeed currentUserId={profile.id} />
+        <WelcomeHeader />
+        <ContextBanner />
+        <UpcomingEventsFeed />
+        <HackSpacesFeed currentUserId={profile?.id ?? null} />
+        <HackerHousesFeed currentUserId={profile?.id ?? null} />
         <SuggestedBuildersFeed />
+        <ActiveCitiesSection />
       </div>
     </PageContainer>
   )

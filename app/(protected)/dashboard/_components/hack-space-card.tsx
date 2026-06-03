@@ -58,9 +58,9 @@ export function HackSpaceCard({
   const participants = hackSpace.participants ?? []
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col hover:border-primary/30 transition-all duration-200 h-full">
+    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col hover:border-primary/30 transition-all duration-200 h-full">
       {/* Cover image */}
-      <div className="relative h-48 w-full overflow-hidden">
+      <div className="relative h-28 w-full overflow-hidden">
         {hackSpace.image_url ? (
           <img
             src={hackSpace.image_url}
@@ -73,7 +73,7 @@ export function HackSpaceCard({
         <div className="absolute inset-0 bg-linear-to-t from-card to-transparent" />
       </div>
 
-      <div className="p-5 flex flex-col gap-4 flex-1">
+      <div className="p-4 flex flex-col gap-4 flex-1">
         {/* Header */}
         <div className="flex items-start gap-3">
           {/* Title + status */}

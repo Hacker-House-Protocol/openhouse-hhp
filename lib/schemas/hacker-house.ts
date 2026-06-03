@@ -4,8 +4,12 @@ import { ARCHETYPE_IDS } from "@/lib/onboarding"
 const APPLICATION_TYPES = ["open", "invite_only", "curated"] as const
 const EVENT_TIMINGS = ["before", "during", "after"] as const
 
+const HOUSE_MODALITIES = ["free", "paid", "staking"] as const
+
 export const createHackerHouseSchema = z.object({
   name: z.string().min(3, "Minimum 3 characters").max(80),
+  modality: z.enum(HOUSE_MODALITIES, { required_error: "Select a modality" }),
+  sponsor_name: z.string().max(100).optional(),
   region: z.string().optional(),
   country: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
@@ -52,4 +56,4 @@ export const reviewHackerHouseApplicationSchema = z.object({
 
 export type ReviewHackerHouseApplicationInput = z.infer<typeof reviewHackerHouseApplicationSchema>
 
-export { APPLICATION_TYPES, EVENT_TIMINGS }
+export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES }

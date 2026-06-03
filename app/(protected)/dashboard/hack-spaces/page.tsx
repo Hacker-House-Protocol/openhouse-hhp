@@ -8,9 +8,9 @@ import { useFilteredHackSpaces } from "@/services/api/hack-spaces"
 import { useDebounce } from "@/hooks/use-debounce"
 import { HackSpaceCard } from "../_components/hack-space-card"
 import { useProfile } from "@/services/api/profile"
+import { PageContainer } from "../_components/page-container"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PageContainer } from "../_components/page-container"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { ARCHETYPES } from "@/lib/onboarding"
@@ -62,7 +62,6 @@ export default function HackSpacesPage() {
   const [searchInput, setSearchInput] = useState(filters.q)
   const debouncedSearch = useDebounce(searchInput)
 
-  // Build activeFilters stripping empty strings
   const activeFilters: HackSpaceListParams = {}
   if (filters.track) activeFilters.track = filters.track as HackSpaceTrack
   if (filters.status) activeFilters.status = filters.status as HackSpaceStatus
@@ -86,291 +85,259 @@ export default function HackSpacesPage() {
   }
 
   return (
-    <PageContainer className="flex flex-col gap-8">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display font-bold text-foreground text-2xl">
-            Hack Spaces
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isLoading
-              ? "Loading..."
-              : `Showing ${hackSpaces.length} of ${total} space${total !== 1 ? "s" : ""}`}
-          </p>
-        </div>
-        <Link href="/dashboard/hack-spaces/create">
-          <Button className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5">
-            + Create Space
-          </Button>
-        </Link>
-      </div>
+    <PageContainer className="flex flex-col gap-6">
+      <h1 className="font-display font-bold text-foreground text-2xl">Hack Spaces</h1>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3">
-        {/* Search row */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-          <Input
-            type="text"
-            placeholder="Search spaces..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-9 pr-8 font-mono text-sm"
-          />
-          {searchInput && (
-            <button
-              type="button"
-              onClick={() => setSearchInput("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
+      <div className="flex flex-col gap-6">
+        {/* Create button */}
+        <div className="flex justify-end">
+          <Link href="/dashboard/hack-spaces/create">
+            <Button className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5">
+              + Create Space
+            </Button>
+          </Link>
         </div>
 
-        {/* Track row */}
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest shrink-0">
-            Track
-          </span>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            <button
-              type="button"
-              onClick={() => void setFilters({ track: "" })}
-              className={cn(
-                "text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap shrink-0",
-                filters.track === ""
-                  ? "border-primary text-primary bg-primary/10"
-                  : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
-              )}
-            >
-              All
-            </button>
-            {TRACKS.map((t) => (
+        {/* Filters */}
+        <div className="flex flex-col gap-3">
+          {/* Search row */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Search spaces..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9 pr-8 font-mono text-sm"
+            />
+            {searchInput && (
               <button
-                key={t}
                 type="button"
-                onClick={() =>
-                  void setFilters({ track: filters.track === t ? "" : t })
-                }
+                onClick={() => setSearchInput("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Track row */}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest shrink-0">
+              Track
+            </span>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
+              <button
+                type="button"
+                onClick={() => void setFilters({ track: "" })}
                 className={cn(
                   "text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap shrink-0",
-                  filters.track === t
+                  filters.track === ""
                     ? "border-primary text-primary bg-primary/10"
                     : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
                 )}
               >
-                {TRACK_EMOJIS[t]} {t}
+                All
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Looking for row */}
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest shrink-0">
-            Looking for
-          </span>
-          <div className="flex gap-2">
-            {ARCHETYPES.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() =>
-                  void setFilters({
-                    looking_for: filters.looking_for === a.id ? "" : a.id,
-                  })
-                }
-                className={cn(
-                  "text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap",
-                  filters.looking_for === a.id
-                    ? "border-current"
-                    : "border-border text-muted-foreground hover:border-border/80",
-                )}
-                style={
-                  filters.looking_for === a.id
-                    ? {
-                        color: `var(${a.colorVar})`,
-                        borderColor: `var(${a.colorVar})`,
-                        backgroundColor: `color-mix(in oklch, var(${a.colorVar}) 10%, transparent)`,
-                      }
-                    : undefined
-                }
-              >
-                {a.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Status row + clear */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest shrink-0">
-              Status
-            </span>
-            <div className="flex gap-2">
-              {STATUS_OPTIONS.map(({ value, label, colorVar }) => (
+              {TRACKS.map((t) => (
                 <button
-                  key={value}
+                  key={t}
                   type="button"
                   onClick={() =>
-                    void setFilters({
-                      status: filters.status === value ? "" : value,
-                    })
+                    void setFilters({ track: filters.track === t ? "" : t })
                   }
                   className={cn(
-                    "flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap",
-                    filters.status === value
-                      ? "border-current"
-                      : "border-border hover:border-border/80",
+                    "text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap shrink-0",
+                    filters.track === t
+                      ? "border-primary text-primary bg-primary/10"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
                   )}
-                  style={{
-                    color:
-                      filters.status === value ? `var(${colorVar})` : undefined,
-                    backgroundColor:
-                      filters.status === value
-                        ? `color-mix(in oklch, var(${colorVar}) 10%, transparent)`
-                        : undefined,
-                  }}
                 >
-                  <span
-                    className="size-1.5 rounded-full shrink-0"
-                    style={{ background: `var(${colorVar})` }}
-                  />
-                  <span
-                    className={
-                      filters.status === value
-                        ? undefined
-                        : "text-muted-foreground"
-                    }
-                  >
-                    {label}
-                  </span>
+                  {TRACK_EMOJIS[t]} {t}
                 </button>
               ))}
             </div>
           </div>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
-            >
-              Clear filters ×
-            </button>
-          )}
-        </div>
-      </div>
+          {/* Looking for row */}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest shrink-0">
+              Looking for
+            </span>
+            <div className="flex gap-2">
+              {ARCHETYPES.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() =>
+                    void setFilters({
+                      looking_for: filters.looking_for === a.id ? "" : a.id,
+                    })
+                  }
+                  className={cn(
+                    "text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap",
+                    filters.looking_for === a.id
+                      ? "border-current"
+                      : "border-border text-muted-foreground hover:border-border/80",
+                  )}
+                  style={
+                    filters.looking_for === a.id
+                      ? {
+                          color: `var(${a.colorVar})`,
+                          borderColor: `var(${a.colorVar})`,
+                          backgroundColor: `color-mix(in oklch, var(${a.colorVar}) 10%, transparent)`,
+                        }
+                      : undefined
+                  }
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {/* Results */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="bg-card border border-border rounded-xl overflow-hidden flex flex-col"
-            >
-              {/* Image placeholder */}
-              <Skeleton className="h-48 w-full rounded-none" />
-              {/* Body */}
-              <div className="p-5 flex flex-col gap-4 flex-1">
-                {/* Title + status */}
-                <div className="flex items-start justify-between gap-2">
-                  <Skeleton className="h-5 w-2/3" />
-                  <Skeleton className="h-5 w-20 rounded-sm" />
-                </div>
-                {/* Creator */}
-                <Skeleton className="h-3 w-36" />
-                {/* Description */}
-                <div className="flex flex-col gap-1.5">
-                  <Skeleton className="h-3.5 w-full" />
-                  <Skeleton className="h-3.5 w-4/5" />
-                </div>
-                {/* Pills */}
-                <div className="flex flex-col gap-1.5 min-h-[44px]">
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3].map((j) => (
-                      <Skeleton key={j} className="h-5 w-16 rounded-full" />
-                    ))}
-                  </div>
-                  <div className="flex gap-1.5">
-                    {[1, 2].map((j) => (
-                      <Skeleton key={j} className="h-5 w-20 rounded-full" />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1" />
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4].map((j) => (
-                        <Skeleton key={j} className="size-2 rounded-full" />
-                      ))}
-                    </div>
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                  <Skeleton className="h-8 w-20 rounded-lg" />
-                </div>
+          {/* Status row + clear */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest shrink-0">
+                Status
+              </span>
+              <div className="flex gap-2">
+                {STATUS_OPTIONS.map(({ value, label, colorVar }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      void setFilters({
+                        status: filters.status === value ? "" : value,
+                      })
+                    }
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-mono transition-all cursor-pointer whitespace-nowrap",
+                      filters.status === value
+                        ? "border-current"
+                        : "border-border hover:border-border/80",
+                    )}
+                    style={{
+                      color:
+                        filters.status === value ? `var(${colorVar})` : undefined,
+                      backgroundColor:
+                        filters.status === value
+                          ? `color-mix(in oklch, var(${colorVar}) 10%, transparent)`
+                          : undefined,
+                    }}
+                  >
+                    <span
+                      className="size-1.5 rounded-full shrink-0"
+                      style={{ background: `var(${colorVar})` }}
+                    />
+                    <span
+                      className={
+                        filters.status === value
+                          ? undefined
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {label}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      ) : hackSpaces.length === 0 ? (
-        <div className="bg-card border border-dashed border-border rounded-xl p-16 flex flex-col items-center gap-4 text-center">
-          <span className="text-4xl">🔗</span>
-          <div className="flex flex-col gap-1">
-            <p className="font-display font-semibold text-foreground">
-              No Hack Spaces found.
-            </p>
-            <p className="text-muted-foreground text-sm">
-              {hasActiveFilters
-                ? "Try clearing filters."
-                : "Be the first to create one."}
-            </p>
-          </div>
-          {!hasActiveFilters && (
-            <Link href="/dashboard/hack-spaces/create">
-              <Button className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5 mt-2">
-                Create the first Space →
-              </Button>
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {hackSpaces.map((hs) => (
-            <HackSpaceCard
-              key={hs.id}
-              hackSpace={hs}
-              currentUserId={profile?.id ?? null}
-            />
-          ))}
-        </div>
-      )}
 
-      {/* Load more / end indicator */}
-      {hasNextPage && (
-        <div className="flex justify-center pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-full font-mono text-sm px-6"
-            onClick={() => void fetchNextPage()}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? "Loading..." : "Load more"}
-          </Button>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+              >
+                Clear filters ×
+              </button>
+            )}
+          </div>
         </div>
-      )}
-      {!hasNextPage && hackSpaces.length > 0 && !isLoading && (
-        <p className="text-center text-xs font-mono text-muted-foreground pt-2">
-          All {total} space{total !== 1 ? "s" : ""} loaded
-        </p>
-      )}
+
+        {/* Results */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-card border border-border rounded-lg overflow-hidden flex flex-col"
+              >
+                <Skeleton className="h-28 w-full rounded-none" />
+                <div className="p-4 flex flex-col gap-4 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-5 w-20 rounded-sm" />
+                  </div>
+                  <Skeleton className="h-3 w-36" />
+                  <div className="flex flex-col gap-1.5">
+                    <Skeleton className="h-3.5 w-full" />
+                    <Skeleton className="h-3.5 w-4/5" />
+                  </div>
+                  <div className="flex-1" />
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : hackSpaces.length === 0 ? (
+          <div className="bg-card border border-dashed border-border rounded-lg p-16 flex flex-col items-center gap-4 text-center">
+            <span className="text-4xl">🔗</span>
+            <div className="flex flex-col gap-1">
+              <p className="font-display font-semibold text-foreground">
+                No Hack Spaces found.
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {hasActiveFilters
+                  ? "Try clearing filters."
+                  : "Be the first to create one."}
+              </p>
+            </div>
+            {!hasActiveFilters && (
+              <Link href="/dashboard/hack-spaces/create">
+                <Button className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-5 mt-2">
+                  Create the first Space →
+                </Button>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {hackSpaces.map((hs) => (
+              <HackSpaceCard
+                key={hs.id}
+                hackSpace={hs}
+                currentUserId={profile?.id ?? null}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Load more */}
+        {hasNextPage && (
+          <div className="flex justify-center pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full font-mono text-sm px-6"
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? "Loading..." : "Load more"}
+            </Button>
+          </div>
+        )}
+        {!hasNextPage && hackSpaces.length > 0 && !isLoading && (
+          <p className="text-center text-xs font-mono text-muted-foreground pt-2">
+            All {total} space{total !== 1 ? "s" : ""} loaded
+          </p>
+        )}
+      </div>
     </PageContainer>
   )
 }
