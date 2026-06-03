@@ -1,13 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { ArrowRight } from "lucide-react"
 import { useFilteredHackSpaces } from "@/services/api/hack-spaces"
 import { HackSpaceCard } from "./hack-space-card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
-const PREVIEW_LIMIT = 6
+const PREVIEW_LIMIT = 4
 
 interface HackSpacesFeedProps {
   currentUserId: string | null
@@ -25,7 +26,7 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="font-display font-bold text-foreground text-lg">Hack Spaces</h2>
+          <h2 className="font-display font-bold text-foreground text-lg">Hack Spaces looking for you</h2>
           {!isLoading && total > 0 && (
             <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">
               {total}
@@ -36,9 +37,9 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
           {hackSpaces.length > 0 && (
             <Link
               href="/dashboard/hack-spaces"
-              className="text-xs font-mono text-muted-foreground hover:text-primary transition-colors"
+              className="text-primary text-sm font-medium flex items-center gap-1"
             >
-              View all →
+              See all <ArrowRight className="size-4" />
             </Link>
           )}
           <Link href="/dashboard/hack-spaces/create">
@@ -55,10 +56,10 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
       {/* Content */}
       {isLoading ? (
         <ScrollArea>
-          <div className="flex gap-3 pb-3 w-max items-stretch">
+          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-[85vw] sm:w-[45vw] lg:w-[30vw] shrink-0">
-                <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 h-[180px]">
+              <div key={i} className="min-w-[280px] lg:min-w-0 shrink-0">
+                <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-4 h-[220px]">
                   <Skeleton className="h-5 w-3/4" />
                   <Skeleton className="h-3 w-32" />
                   <Skeleton className="h-4 w-full" />
@@ -88,9 +89,9 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
         </div>
       ) : (
         <ScrollArea>
-          <div className="flex gap-3 pb-3 w-max items-stretch">
+          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
             {preview.map((hs) => (
-              <div key={hs.id} className="w-[85vw] sm:w-[45vw] lg:w-[30vw] shrink-0">
+              <div key={hs.id} className="min-w-[280px] lg:min-w-0 shrink-0">
                 <HackSpaceCard hackSpace={hs} currentUserId={currentUserId} />
               </div>
             ))}

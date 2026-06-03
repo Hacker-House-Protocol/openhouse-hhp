@@ -205,6 +205,7 @@ export interface HackerHouse {
   end_date: string
   capacity: number
   modality: HouseModality
+  sponsor_name: string | null
   images: string[]
   includes_private_room: boolean
   includes_shared_room: boolean

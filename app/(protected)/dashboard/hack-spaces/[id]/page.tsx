@@ -13,88 +13,41 @@ import { ARCHETYPES } from "@/lib/onboarding"
 import { ApplicationManager } from "./_components/application-manager"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { Badge, type badgeVariants } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import type { VariantProps } from "class-variance-authority"
 import {
   PenLine,
-  GitBranch,
-  Users,
-  Globe,
-  Layers,
-  Shield,
-  CalendarDays,
+  Calendar,
+  Github,
   ExternalLink,
+  Video,
+  Settings,
   Sparkles,
-  MapPin,
+  Check,
 } from "lucide-react"
-import { BackButton } from "../../../_components/back-button"
 
-type BadgeVariant = VariantProps<typeof badgeVariants>["variant"]
+/* ── Hardcoded roles per hack space (mocked, to be dynamic later) ── */
+const MOCK_ROLES: Record<string, { skill: string; archetype: string; archetypeColor: string; status: string }[]> = {}
 
-const TRACK_EMOJIS: Record<string, string> = {
-  DeFi: "💰",
-  "DAO tools": "🏛️",
-  AI: "🤖",
-  Social: "🌐",
-  Gaming: "🎮",
-  NFTs: "🖼️",
-  Infrastructure: "⚙️",
-  Other: "🔗",
+function getDefaultRoles(skills: string[], lookingFor: string[]) {
+  const archetypeMap: Record<string, { color: string }> = {
+    builder: { color: "var(--builder-archetype)" },
+    strategist: { color: "var(--strategist)" },
+    visionary: { color: "var(--visionary)" },
+  }
+  return skills.map((skill, i) => ({
+    skill,
+    archetype: lookingFor[i % lookingFor.length] ?? "builder",
+    archetypeColor: archetypeMap[lookingFor[i % lookingFor.length]]?.color ?? "var(--builder-archetype)",
+    status: i === 0 ? "Filled" : "Vacant",
+  }))
 }
-
-const STATUS_CONFIG = {
-  open: {
-    label: "Looking for members",
-    badgeCls: "border-primary text-primary bg-primary/10",
-    textCls: "text-primary",
-    dotCls: "bg-primary",
-    iconBgCls: "bg-primary/10",
-  },
-  full: {
-    label: "Team full",
-    badgeCls:
-      "border-builder-archetype text-builder-archetype bg-builder-archetype/10",
-    textCls: "text-builder-archetype",
-    dotCls: "bg-builder-archetype",
-    iconBgCls: "bg-builder-archetype/10",
-  },
-  in_progress: {
-    label: "In progress",
-    badgeCls: "border-strategist text-strategist bg-strategist/10",
-    textCls: "text-strategist",
-    dotCls: "bg-strategist",
-    iconBgCls: "bg-strategist/10",
-  },
-  finished: {
-    label: "Finished",
-    badgeCls: "border-muted-foreground text-muted-foreground bg-muted",
-    textCls: "text-muted-foreground",
-    dotCls: "bg-muted-foreground",
-    iconBgCls: "bg-muted",
-  },
-} as const
 
 const STAGE_LABELS: Record<string, string> = {
   idea: "Idea",
   prototype: "Prototype",
   in_development: "In Development",
 }
-
-const ARCHETYPE_BADGE_VARIANT: Record<string, BadgeVariant> = {
-  visionary: "visionary-outline",
-  strategist: "strategist-outline",
-  builder: "builder-outline",
-}
-
-const ARCHETYPE_TEXT_CLS: Record<string, string> = {
-  visionary: "text-visionary",
-  strategist: "text-strategist",
-  builder: "text-builder-archetype",
-}
-
-type HackSpaceStatus = keyof typeof STATUS_CONFIG
 
 export default function HackSpaceDetailPage({
   params,
@@ -111,47 +64,13 @@ export default function HackSpaceDetailPage({
 
   if (isLoading) {
     return (
-      <PageContainer>
-        <Skeleton className="h-4 w-28 mb-6" />
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-          <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-12 rounded-lg" />
-                <div className="flex flex-col gap-2">
-                  <Skeleton className="h-7 w-64" />
-                  <Skeleton className="h-4 w-40" />
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-3 w-28" />
-              <div className="flex gap-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-6 w-20 rounded-sm" />
-                ))}
-              </div>
-            </div>
-          </div>
-          <aside>
-            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
-              <Skeleton className="h-3 w-16" />
-              <div className="flex flex-col gap-3">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="flex justify-between">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-4 w-24" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
+      <PageContainer className="!p-0">
+        <Skeleton className="h-40 md:h-56 w-full" />
+        <div className="p-6 flex flex-col gap-6">
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
         </div>
       </PageContainer>
     )
@@ -160,13 +79,8 @@ export default function HackSpaceDetailPage({
   if (!hackSpace) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-foreground font-display font-bold text-xl">
-          Hack Space not found
-        </p>
-        <Link
-          href="/dashboard/hack-spaces"
-          className="text-primary font-mono text-sm hover:underline"
-        >
+        <p className="text-foreground font-display font-bold text-xl">Hack Space not found</p>
+        <Link href="/dashboard/hack-spaces" className="text-primary font-mono text-sm hover:underline">
           ← Back to Hack Spaces
         </Link>
       </div>
@@ -174,223 +88,321 @@ export default function HackSpaceDetailPage({
   }
 
   const isOwner = profile?.id === hackSpace.creator.id
-  const creatorArchetype = ARCHETYPES.find(
-    (a) => a.id === hackSpace.creator.archetype,
-  )
-  const statusCfg = STATUS_CONFIG[hackSpace.status] ?? STATUS_CONFIG.open
-  const trackEmoji = TRACK_EMOJIS[hackSpace.track] ?? "🔗"
-  const canApply = !isOwner && hackSpace.status === "open"
-
-  const memberCount = hackSpace.member_count ?? 0
+  const isMember =
+    isOwner || (hackSpace.participants ?? []).some((p) => p.id === profile?.id)
+  const canApply = !isMember && hackSpace.status === "open"
   const participants = hackSpace.participants ?? []
+  const allMembers = [hackSpace.creator, ...participants.filter((p) => p.id !== hackSpace.creator.id)]
+  const memberCount = hackSpace.member_count ?? allMembers.length
+  const roles =
+    MOCK_ROLES[id] ??
+    getDefaultRoles(hackSpace.skills_needed, hackSpace.looking_for)
 
-  function handleStatusChange(newStatus: HackSpaceStatus) {
+  const statusLabel =
+    hackSpace.status === "open"
+      ? "Recruiting"
+      : hackSpace.status === "in_progress"
+        ? "In progress"
+        : hackSpace.status === "full"
+          ? "Full"
+          : "Finished"
+
+  const statusCls =
+    hackSpace.status === "open"
+      ? "bg-builder-archetype/20 text-builder-archetype"
+      : hackSpace.status === "in_progress"
+        ? "bg-[#F59E0B]/20 text-[#F59E0B]"
+        : "bg-muted text-muted-foreground"
+
+  function handleStatusChange(newStatus: "open" | "full" | "in_progress" | "finished") {
     updateHackSpace.mutate({ status: newStatus })
   }
 
   return (
-    <PageContainer>
-      {/* Mobile back button */}
-      <BackButton href="/dashboard/hack-spaces" />
+    <PageContainer className="!p-0 !pt-0">
+      <div className="max-w-4xl mx-auto pb-32">
+        {/* ── Banner ── */}
+        <div className="relative h-40 md:h-56 w-full overflow-hidden">
+          {hackSpace.image_url ? (
+            <img
+              src={hackSpace.image_url}
+              alt={hackSpace.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/30 via-card to-card" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+        </div>
 
-      {/* Navigation (desktop) */}
-      <div className="hidden md:block mb-6">
-        <Link
-          href="/dashboard/hack-spaces"
-          className="text-muted-foreground hover:text-foreground transition-colors font-mono text-sm"
-        >
-          ← Hack Spaces
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-        {/* ── Main content ── */}
-        <div className="flex flex-col gap-6">
-          {/* Hero header */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col gap-0">
-            <div className="relative h-60 w-full overflow-hidden">
-              {hackSpace.image_url ? (
-                <img
-                  src={hackSpace.image_url}
-                  alt={hackSpace.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-linear-to-br from-primary/20 via-muted to-card" />
-              )}
-              <div className="absolute inset-0 bg-linear-to-t from-card to-transparent" />
-            </div>
-
-            <div className="p-6 flex flex-col gap-4">
-              <div className="flex items-start gap-4">
-                {/* Title + meta */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <h1 className="font-display font-bold text-foreground text-2xl leading-snug">
-                      {hackSpace.title}
-                    </h1>
-                    <span
-                      className={cn(
-                        "shrink-0 text-xs px-2.5 py-1 rounded-sm border font-mono whitespace-nowrap mt-1",
-                        statusCfg.badgeCls,
-                      )}
-                    >
-                      {statusCfg.label}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap text-sm font-mono mt-1.5">
-                    <span className="text-muted-foreground">by</span>
-                    <Link
-                      href={`/dashboard/builders/${hackSpace.creator.handle}`}
-                      className="text-foreground font-medium hover:text-primary transition-colors"
-                    >
-                      @{hackSpace.creator.handle ?? "anon"}
-                    </Link>
-                    {creatorArchetype && (
-                      <span
-                        className={
-                          ARCHETYPE_TEXT_CLS[creatorArchetype.id] ??
-                          "text-muted-foreground"
-                        }
-                      >
-                        · {creatorArchetype.label}
-                      </span>
-                    )}
-                  </div>
-                </div>
+        {/* ── Header ── */}
+        <div className="bg-card border-b border-border p-6 -mt-8 relative">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground mb-2">
+                {hackSpace.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={cn("px-2 py-1 rounded text-xs font-medium", statusCls)}>
+                  {statusLabel}
+                </span>
+                <span className="px-2 py-1 border border-border text-muted-foreground rounded text-xs">
+                  {hackSpace.track}
+                </span>
               </div>
-
-              {/* Event badge */}
-              {hackSpace.event_name && (
-                <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                  <CalendarDays className="size-4 text-primary shrink-0" />
-                  <span className="text-sm font-mono text-primary">
-                    For {hackSpace.event_name}
-                    {hackSpace.event_timing && hackSpace.event_timing.length > 0 &&
-                      ` · ${hackSpace.event_timing.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")} the event`}
-                    {hackSpace.event_start_date && (
-                      <>
-                        {" · "}
-                        {hackSpace.event_end_date
-                          ? `${new Date(hackSpace.event_start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${new Date(hackSpace.event_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                          : new Date(hackSpace.event_start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </>
-                    )}
-                  </span>
-                  {hackSpace.event_url && (
-                    <a
-                      href={hackSpace.event_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-auto text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <ExternalLink className="size-3.5" />
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Owner actions */}
-              {isOwner && (
-                <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <Link href={`/dashboard/hack-spaces/${id}/edit`}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="font-mono text-xs gap-1.5"
-                    >
-                      <PenLine className="size-3.5" />
-                      Edit
-                    </Button>
-                  </Link>
-                  {hackSpace.status === "open" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="font-mono text-xs gap-1.5"
-                      onClick={() => handleStatusChange("in_progress")}
-                      disabled={updateHackSpace.isPending}
-                    >
-                      <Sparkles className="size-3.5" />
-                      Start building
-                    </Button>
-                  )}
-                  {hackSpace.status === "in_progress" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="font-mono text-xs gap-1.5"
-                      onClick={() => handleStatusChange("finished")}
-                      disabled={updateHackSpace.isPending}
-                    >
-                      Mark as finished
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
+
+            {/* Owner actions */}
+            {isOwner && (
+              <div className="flex items-center gap-2">
+                <Link href={`/dashboard/hack-spaces/${id}/edit`}>
+                  <Button variant="outline" size="sm" className="font-mono text-xs gap-1.5 rounded-full">
+                    <PenLine className="size-3.5" />
+                    Edit
+                  </Button>
+                </Link>
+                {hackSpace.status === "open" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-mono text-xs gap-1.5 rounded-full"
+                    onClick={() => handleStatusChange("in_progress")}
+                    disabled={updateHackSpace.isPending}
+                  >
+                    <Sparkles className="size-3.5" />
+                    Start building
+                  </Button>
+                )}
+                {hackSpace.status === "in_progress" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-mono text-xs gap-1.5 rounded-full"
+                    onClick={() => handleStatusChange("finished")}
+                    disabled={updateHackSpace.isPending}
+                  >
+                    Mark as finished
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Description */}
-          <section className="flex flex-col gap-2">
-            <SectionLabel>Description</SectionLabel>
-            <p className="text-foreground leading-relaxed">
-              {hackSpace.description}
-            </p>
+          {/* Event badge */}
+          {hackSpace.event_name && (
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-2 bg-strategist/10 border border-strategist rounded-lg text-strategist text-sm">
+              <Calendar className="size-4" />
+              For {hackSpace.event_name}
+              {hackSpace.event_timing && hackSpace.event_timing.length > 0 &&
+                ` · ${hackSpace.event_timing.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(" · ")} the event`}
+              {hackSpace.event_start_date && (
+                <> · {new Date(hackSpace.event_start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {hackSpace.event_end_date && `–${new Date(hackSpace.event_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 sm:p-6">
+          {/* ── About ── */}
+          <section className="mb-8">
+            <h2 className="font-display font-bold text-lg text-foreground mb-3">About the project</h2>
+            <p className="text-foreground/90 mb-4 leading-relaxed">{hackSpace.description}</p>
+            <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
+              <span>Stage: {STAGE_LABELS[hackSpace.stage] ?? hackSpace.stage}</span>
+              <span>Language: {hackSpace.language.join(", ")}</span>
+              {(hackSpace.city || hackSpace.country || hackSpace.region) && (
+                <span>
+                  Region: {[hackSpace.city, hackSpace.country, hackSpace.region].filter(Boolean).join(", ")}
+                </span>
+              )}
+            </div>
+            {hackSpace.repo_url && (
+              <a
+                href={hackSpace.repo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 mt-4 text-primary hover:underline"
+              >
+                <Github className="size-4" />
+                View repository
+              </a>
+            )}
           </section>
 
-          {/* Skills */}
-          {hackSpace.skills_needed.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <SectionLabel>Skills needed</SectionLabel>
-              <div className="flex flex-wrap gap-2">
-                {hackSpace.skills_needed.map((skill) => (
-                  <Badge
-                    key={skill}
-                    variant="outline"
-                    className="border-primary/30 text-primary bg-primary/5 font-mono rounded-sm"
-                  >
-                    {skill}
-                  </Badge>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Archetypes */}
-          {hackSpace.looking_for.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <SectionLabel>Looking for</SectionLabel>
-              <div className="flex flex-wrap gap-2">
-                {hackSpace.looking_for.map((archetypeId) => {
-                  const a = ARCHETYPES.find((x) => x.id === archetypeId)
-                  if (!a) return null
+          {/* ── Open Roles ── */}
+          {roles.length > 0 && (
+            <section className="mb-8">
+              <h2 className="font-display font-bold text-lg text-foreground mb-4">Open roles</h2>
+              <div className="flex flex-col gap-3">
+                {roles.map((role, index) => {
+                  const archetype = ARCHETYPES.find((a) => a.id === role.archetype)
                   return (
-                    <Badge
-                      key={archetypeId}
-                      variant={
-                        ARCHETYPE_BADGE_VARIANT[archetypeId] ?? "outline"
-                      }
-                      className="font-mono rounded-sm text-sm px-3 py-1"
+                    <div
+                      key={index}
+                      className="flex items-center justify-between bg-background border border-border rounded-lg p-4"
                     >
-                      {a.label}
-                    </Badge>
+                      <div className="flex items-center gap-3">
+                        <span className="text-foreground font-medium">{role.skill}</span>
+                        {archetype && (
+                          <span
+                            className="px-2 py-0.5 rounded text-xs"
+                            style={{
+                              backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
+                              color: `var(${archetype.colorVar})`,
+                            }}
+                          >
+                            {archetype.label}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          "px-2 py-1 rounded text-xs",
+                          role.status === "Vacant"
+                            ? "bg-primary/20 text-primary"
+                            : "bg-builder-archetype/20 text-builder-archetype",
+                        )}
+                      >
+                        {role.status}
+                      </span>
+                    </div>
                   )
                 })}
               </div>
             </section>
           )}
 
-          {/* Apply section (non-owner) */}
-          {canApply && (
-            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
-              <SectionLabel>Apply to join</SectionLabel>
+          {/* ── Current Team ── */}
+          <section className="mb-8">
+            <h2 className="font-display font-bold text-lg text-foreground mb-2">Current team</h2>
+            <p className="text-muted-foreground text-sm mb-4">
+              {memberCount}/{hackSpace.max_team_size} builders
+            </p>
+            <div className="flex flex-wrap gap-4">
+              {allMembers.map((member, i) => {
+                const archetype = ARCHETYPES.find((a) => a.id === member.archetype)
+                const isCreator = member.id === hackSpace.creator.id
+                return (
+                  <Link
+                    key={member.id ?? i}
+                    href={`/dashboard/builders/${member.handle}`}
+                    className="flex items-center gap-3 bg-background border border-border rounded-lg p-3 hover:border-primary transition-colors"
+                  >
+                    <div
+                      className="size-10 rounded-full border-2 overflow-hidden flex items-center justify-center bg-muted"
+                      style={{
+                        borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)",
+                      }}
+                    >
+                      {member.avatar_url ? (
+                        <img
+                          src={member.avatar_url}
+                          alt={member.handle ?? "member"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {member.handle?.charAt(0)?.toUpperCase() ?? "?"}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm">
+                        @{member.handle ?? "anon"}
+                        {isCreator && (
+                          <span className="ml-1 text-xs text-primary font-mono">Lead</span>
+                        )}
+                      </p>
+                      {archetype && (
+                        <p className="text-xs" style={{ color: `var(${archetype.colorVar})` }}>
+                          {archetype.label}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* ── Access Requirements ── */}
+          <section className="mb-8">
+            <h2 className="font-display font-bold text-lg text-foreground mb-4">Access requirements</h2>
+            <div className="bg-background border border-border rounded-lg p-4">
+              <div className="flex flex-wrap gap-3 mb-3">
+                {hackSpace.application_type === "open" ? (
+                  <span className="px-3 py-1 bg-muted text-foreground rounded text-sm">
+                    Open to all builders
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-muted text-foreground rounded text-sm capitalize">
+                    {hackSpace.application_type.replace("_", " ")}
+                  </span>
+                )}
+                {hackSpace.experience_level && (
+                  <span className="px-3 py-1 bg-muted text-foreground rounded text-sm capitalize">
+                    {hackSpace.experience_level} level
+                  </span>
+                )}
+              </div>
+              <p className="text-builder-archetype text-sm flex items-center gap-2">
+                <span className="size-4 bg-builder-archetype rounded-full flex items-center justify-center text-background text-[10px]">
+                  <Check className="size-2.5" />
+                </span>
+                You meet all the requirements
+              </p>
+            </div>
+          </section>
+
+          {/* ── Linked Event ── */}
+          {hackSpace.event_name && (
+            <section className="mb-24">
+              <h2 className="font-display font-bold text-lg text-foreground mb-4">Linked event</h2>
+              <div className="bg-background border border-border rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display font-bold text-foreground">{hackSpace.event_name}</h3>
+                    <p className="text-muted-foreground text-sm">
+                      {hackSpace.event_start_date &&
+                        new Date(hackSpace.event_start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {hackSpace.event_end_date &&
+                        `–${new Date(hackSpace.event_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                    </p>
+                  </div>
+                  {hackSpace.event_url && (
+                    <a
+                      href={hackSpace.event_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-primary text-sm hover:underline"
+                    >
+                      View event <ExternalLink className="size-4" />
+                    </a>
+                  )}
+                </div>
+                {hackSpace.event_timing && hackSpace.event_timing.length > 0 && (
+                  <p className="text-muted-foreground text-sm mt-2">
+                    This Hack Space is for: {hackSpace.event_timing.map((t) => t.toUpperCase()).join(", ")} the event
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Spacer if no event */}
+          {!hackSpace.event_name && <div className="h-24" />}
+
+          {/* ── Apply section (non-member, inline — hidden behind sticky footer CTA) ── */}
+          {showApplyForm && canApply && (
+            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 mb-8">
+              <h2 className="font-display font-bold text-foreground">Apply to join</h2>
               {apply.isSuccess ? (
-                <p className="text-sm font-mono text-primary">
-                  ✓ Application sent! The creator will review it.
+                <p className="text-sm text-primary">
+                  Application sent! The creator will review it.
                 </p>
-              ) : showApplyForm ? (
+              ) : (
                 <div className="flex flex-col gap-3">
                   <Textarea
                     value={message}
@@ -400,13 +412,9 @@ export default function HackSpaceDetailPage({
                     rows={3}
                     className="resize-none"
                   />
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {message.length}/300
-                  </p>
+                  <p className="text-xs text-muted-foreground font-mono">{message.length}/300</p>
                   {apply.error && (
-                    <p className="text-xs text-destructive">
-                      {apply.error.message}
-                    </p>
+                    <p className="text-xs text-destructive">{apply.error.message}</p>
                   )}
                   <div className="flex gap-2">
                     <Button
@@ -431,174 +439,58 @@ export default function HackSpaceDetailPage({
                     </Button>
                   </div>
                 </div>
-              ) : (
-                <Button
-                  onClick={() => setShowApplyForm(true)}
-                  className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 w-fit"
-                >
-                  Apply to Hack Space →
-                </Button>
               )}
             </div>
           )}
 
-          {/* Applications manager (owner only) */}
+          {/* ── Applications manager (owner only) ── */}
           {isOwner && (
-            <section className="flex flex-col gap-4 pt-2">
-              <SectionLabel className="border-t border-border pt-4">
-                Applications
-              </SectionLabel>
+            <section className="mb-8">
+              <h2 className="font-display font-bold text-lg text-foreground mb-4">Applications</h2>
               <ApplicationManager hackSpaceId={id} />
             </section>
           )}
         </div>
 
-        {/* ── Sidebar ── */}
-        <aside className="flex flex-col gap-4">
-          {/* Details card */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-border">
-              <SectionLabel>Details</SectionLabel>
-            </div>
-            <div className="p-5 flex flex-col gap-3 text-sm">
-              <DetailRow icon={<Layers className="size-3.5" />} label="Track">
-                {trackEmoji} {hackSpace.track}
-              </DetailRow>
-              <DetailRow
-                icon={<GitBranch className="size-3.5" />}
-                label="Stage"
+        {/* ── Sticky Footer ── */}
+        <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-60 bg-background/95 backdrop-blur-sm border-t border-border p-4 z-40">
+          <div className="max-w-4xl mx-auto">
+            {isMember ? (
+              <div className="flex gap-3">
+                <Link
+                  href={`/dashboard/hack-spaces/${id}/workspace`}
+                  className="flex-1 py-4 px-6 bg-primary text-primary-foreground font-medium rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                >
+                  <Video className="size-5" />
+                  Enter Workspace
+                </Link>
+                <Link
+                  href={`/dashboard/hack-spaces/${id}/edit`}
+                  className="py-4 px-6 border border-border text-foreground font-medium rounded-full hover:bg-card transition-colors flex items-center justify-center gap-2"
+                >
+                  <Settings className="size-5" />
+                  <span className="hidden sm:inline">Settings</span>
+                </Link>
+              </div>
+            ) : canApply && !apply.isSuccess ? (
+              <button
+                onClick={() => setShowApplyForm(true)}
+                className="w-full py-4 px-6 bg-primary text-primary-foreground font-medium rounded-full hover:opacity-90 transition-opacity"
               >
-                {STAGE_LABELS[hackSpace.stage]}
-              </DetailRow>
-              <DetailRow icon={<Shield className="size-3.5" />} label="Level">
-                <span className="capitalize">{hackSpace.experience_level}</span>
-              </DetailRow>
-              <DetailRow icon={<Globe className="size-3.5" />} label="Language">
-                {hackSpace.language.join(", ")}
-              </DetailRow>
-              {(hackSpace.city || hackSpace.country || hackSpace.region) && (
-                <DetailRow
-                  icon={<MapPin className="size-3.5" />}
-                  label="Location"
-                >
-                  {[hackSpace.city, hackSpace.country, hackSpace.region]
-                    .filter(Boolean)
-                    .join(", ")}
-                </DetailRow>
-              )}
-              <DetailRow icon={<Shield className="size-3.5" />} label="Access">
-                <span className="capitalize">
-                  {hackSpace.application_type.replace("_", " ")}
-                </span>
-              </DetailRow>
-              {hackSpace.application_deadline && (
-                <DetailRow
-                  icon={<CalendarDays className="size-3.5" />}
-                  label="Deadline"
-                >
-                  {new Date(
-                    hackSpace.application_deadline,
-                  ).toLocaleDateString()}
-                </DetailRow>
-              )}
-            </div>
-          </div>
-
-          {/* Team card */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-border">
-              <SectionLabel>Team</SectionLabel>
-            </div>
-            <div className="p-5 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <Users className="size-4 text-muted-foreground" />
-                <span
-                  className={cn(
-                    "font-mono text-sm font-medium",
-                    statusCfg.textCls,
-                  )}
-                >
-                  {memberCount}/{hackSpace.max_team_size} members
-                </span>
+                Apply to this Hack Space
+              </button>
+            ) : apply.isSuccess ? (
+              <div className="w-full py-4 px-6 bg-builder-archetype/20 text-builder-archetype font-medium rounded-full text-center">
+                Application sent!
               </div>
-              {/* Member avatars */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {participants.map((p, i) => (
-                  <div
-                    key={p.id ?? i}
-                    className="size-9 rounded-full overflow-hidden border-2 border-card shrink-0"
-                    style={p.archetype ? {
-                      backgroundColor: `color-mix(in oklch, var(--${p.archetype === "builder" ? "builder-archetype" : p.archetype}) 20%, transparent)`,
-                    } : undefined}
-                  >
-                    {p.avatar_url ? (
-                      <img src={p.avatar_url} alt={p.handle ?? "member"} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-muted" />
-                    )}
-                  </div>
-                ))}
-                {memberCount > participants.length && (
-                  <span className="text-[10px] font-mono text-muted-foreground">+{memberCount - participants.length}</span>
-                )}
+            ) : hackSpace.status !== "open" ? (
+              <div className="w-full py-4 px-6 bg-muted text-muted-foreground font-medium rounded-full text-center cursor-not-allowed">
+                {hackSpace.status === "in_progress" ? "Hack in progress" : hackSpace.status === "full" ? "Team is full" : "Hack Space finished"}
               </div>
-            </div>
+            ) : null}
           </div>
-
-          {/* Repo link */}
-          {hackSpace.repo_url && (
-            <a
-              href={hackSpace.repo_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-card border border-border rounded-xl px-5 py-3 text-sm font-mono text-primary hover:border-primary/30 transition-colors"
-            >
-              <GitBranch className="size-4" />
-              Repository
-              <ExternalLink className="size-3 ml-auto text-muted-foreground" />
-            </a>
-          )}
-        </aside>
+        </div>
       </div>
     </PageContainer>
-  )
-}
-
-function SectionLabel({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <h2
-      className={cn(
-        "text-xs font-mono text-muted-foreground uppercase tracking-widest",
-        className,
-      )}
-    >
-      {children}
-    </h2>
-  )
-}
-
-function DetailRow({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-2 text-muted-foreground font-mono">
-        {icon}
-        {label}
-      </span>
-      <span className="text-foreground font-mono text-right">{children}</span>
-    </div>
   )
 }

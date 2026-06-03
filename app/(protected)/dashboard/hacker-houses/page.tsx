@@ -20,6 +20,7 @@ const STATUS_OPTIONS: { value: HouseStatus; label: string; colorVar: string }[] 
   { value: "open", label: "Open", colorVar: "--primary" },
   { value: "full", label: "Full", colorVar: "--builder-archetype" },
   { value: "active", label: "Active", colorVar: "--strategist" },
+  { value: "finished", label: "Finished", colorVar: "--muted-foreground" },
 ]
 
 export default function HackerHousesPage() {
@@ -39,6 +40,11 @@ export default function HackerHousesPage() {
 
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useFilteredHackerHouses(activeFilters)
+
+  // Separate query for finished houses (only when no filters applied)
+  const { data: finishedData, isLoading: finishedLoading } = useFilteredHackerHouses(
+    { status: "finished" as HouseStatus },
+  )
 
   const { data: profile } = useProfile({ enabled: true })
 
@@ -261,6 +267,31 @@ export default function HackerHousesPage() {
           All {total} house{total !== 1 ? "s" : ""} loaded
         </p>
       )}
+
+      {/* Finished / Archived section */}
+      {!hasActiveFilters && (() => {
+        const finishedHouses = finishedData?.pages.flatMap((p) => p.hacker_houses) ?? []
+        if (finishedLoading || finishedHouses.length === 0) return null
+        return (
+          <div className="flex flex-col gap-4 pt-4 border-t border-border">
+            <div className="flex items-center gap-3">
+              <h2 className="font-display font-bold text-foreground text-lg">Finished</h2>
+              <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">
+                {finishedHouses.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-70">
+              {finishedHouses.map((hh) => (
+                <HackerHouseCard
+                  key={hh.id}
+                  hackerHouse={hh}
+                  currentUserId={profile?.id ?? null}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      })()}
     </PageContainer>
   )
 }

@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Bell, Building2, Home, Map, Users, Zap } from "lucide-react"
+import { Bell, Calendar, Code2, Home, Map, Settings, User, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import React from "react"
@@ -19,17 +19,18 @@ import { SidebarUserCard } from "./sidebar-user-card"
 import { NotificationBadge } from "./notification-badge"
 
 const NAV_MAIN: {
+  key: string
   href: string
   label: string
   icon: React.ElementType
   exact?: boolean
 }[] = [
-  { href: "/dashboard", label: "Home", icon: Home, exact: true },
-  { href: "/dashboard/hack-spaces", label: "Hack Spaces", icon: Zap },
-  { href: "/dashboard/hacker-houses", label: "Hacker Houses", icon: Building2 },
-  { href: "/dashboard/builders", label: "Builders", icon: Users },
-  { href: "/dashboard/map", label: "Map", icon: Map },
-  { href: "/dashboard/notifications", label: "Notifications", icon: Bell },
+  { key: "home", href: "/dashboard", label: "Home", icon: Home, exact: true },
+  { key: "map", href: "/dashboard/map", label: "Map", icon: Map },
+  { key: "network", href: "/dashboard/builders", label: "Network", icon: Users },
+  { key: "events", href: "/dashboard/events", label: "Events", icon: Calendar },
+  { key: "hacks", href: "/dashboard/hacks", label: "Hacks", icon: Code2 },
+  { key: "profile", href: "/dashboard/profile", label: "Profile", icon: User },
 ]
 
 export function AppSidebar() {
@@ -37,55 +38,42 @@ export function AppSidebar() {
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href
-    return pathname === href || pathname.startsWith(href + "/")
+    if (pathname === href || pathname.startsWith(href + "/")) return true
+    // Hacks hub: also highlight for hack-spaces and hacker-houses sub-routes
+    if (href === "/dashboard/hacks") {
+      return pathname.startsWith("/dashboard/hack-spaces") || pathname.startsWith("/dashboard/hacker-houses")
+    }
+    return false
   }
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem className="flex justify-center">
-            <SidebarMenuButton
-              size="lg"
-              asChild
-              className="w-fit rounded-full size-32 hover:bg-transparent active:bg-transparent"
-            >
-              <Link href="/dashboard">
-                <img
-                  src="/assets/hacker-house-protocol-logo.svg"
-                  alt="HHP"
-                  className="shrink-0 w-full h-full animate-float"
-                />
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarHeader className="px-6 pt-6">
+        <Link href="/dashboard" className="flex items-center gap-3 mb-6">
+          <img
+            src="/assets/hacker-house-protocol-logo.svg"
+            alt="Hacker House Protocol"
+            className="w-12 h-12 shrink-0 animate-float"
+          />
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup className="py-4">
+        <SidebarGroup className="px-4">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {NAV_MAIN.map(({ href, label, icon: Icon, exact }) => (
-                <SidebarMenuItem key={href}>
+              {NAV_MAIN.map(({ key, href, label, icon: Icon, exact }) => (
+                <SidebarMenuItem key={key}>
                   <SidebarMenuButton
                     asChild
                     size="lg"
                     isActive={isActive(href, exact)}
                     tooltip={label}
-                    className="h-12 text-base font-medium [&_svg]:size-5 px-6"
+                    className="h-12 text-base font-medium [&_svg]:size-5 px-4 gap-3 rounded-full hover:bg-transparent hover:text-sidebar-accent-foreground"
                   >
                     <Link href={href}>
-                      <span className="relative">
-                        <Icon />
-                        {label === "Notifications" && (
-                          <NotificationBadge variant="absolute" />
-                        )}
-                      </span>
-                      <span className="ml-2">{label}</span>
-                      {label === "Notifications" && (
-                        <NotificationBadge variant="inline" />
-                      )}
+                      <Icon />
+                      <span>{label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -95,8 +83,40 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarUserCard />
+      <SidebarFooter className="px-4 pb-6">
+        <SidebarMenu className="gap-1">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              size="lg"
+              isActive={isActive("/dashboard/notifications")}
+              tooltip="Notifications"
+              className="h-12 text-base font-medium [&_svg]:size-5 px-4 gap-3 rounded-full hover:bg-transparent hover:text-sidebar-accent-foreground"
+            >
+              <Link href="/dashboard/notifications">
+                <span className="relative">
+                  <Bell />
+                  <NotificationBadge variant="absolute" />
+                </span>
+                <span>Notifications</span>
+                <NotificationBadge variant="inline" />
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              size="lg"
+              tooltip="Settings"
+              className="h-12 text-base font-medium [&_svg]:size-5 px-4 gap-3 rounded-full hover:bg-transparent hover:text-sidebar-accent-foreground"
+            >
+              <Link href="/dashboard/profile">
+                <Settings />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   )

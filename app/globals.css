@@ -86,59 +86,60 @@
 }
 
 /* ─── HHP Design System — Always Dark ─── */
+/* Calibrated to match HHP_APP hex palette exactly */
 :root {
   color-scheme: dark;
 
   /* Backgrounds */
-  --background: oklch(0.09 0.04 277);        /* deep navy — base canvas */
-  --foreground: oklch(0.96 0.01 277);        /* near-white */
+  --background: oklch(0.176 0.063 281);      /* #0D0B2B */
+  --foreground: oklch(0.955 0.012 291);      /* #F0EFF8 */
 
-  /* Surfaces — escalonadas en L para crear jerarquía */
-  --card: oklch(0.13 0.05 275);              /* L=13 — 1 nivel sobre background */
-  --card-foreground: oklch(0.96 0.01 277);
-  --popover: oklch(0.16 0.05 275);           /* L=16 — popover flota sobre card */
-  --popover-foreground: oklch(0.96 0.01 277);
+  /* Surfaces */
+  --card: oklch(0.235 0.075 282);            /* #1A1740 */
+  --card-foreground: oklch(0.955 0.012 291);
+  --popover: oklch(0.27 0.08 282);           /* above card */
+  --popover-foreground: oklch(0.955 0.012 291);
 
-  /* Brand — Primary neon: vibrante sobre oscuro */
-  --primary: oklch(0.62 0.26 295);           /* purple brillante — "neon on dark" */
-  --primary-foreground: oklch(0.09 0.04 277);/* texto oscuro sobre primary claro */
+  /* Brand */
+  --primary: oklch(0.452 0.246 297);         /* #6B00C9 */
+  --primary-foreground: oklch(0.955 0.012 291); /* white text on purple */
 
-  /* Neutrals — tokens diferenciados */
-  --secondary: oklch(0.22 0.07 276);         /* L=22 — fondo de botones secondary */
-  --secondary-foreground: oklch(0.96 0.01 277);
-  --muted: oklch(0.17 0.06 276);             /* L=17 — fondo apagado, más oscuro que secondary */
-  --muted-foreground: oklch(0.62 0.03 278);  /* L=62 — texto secundario más legible */
-  --accent: oklch(0.20 0.12 280);            /* L=20, más chroma — hover states y highlights */
-  --accent-foreground: oklch(0.96 0.01 277);
+  /* Neutrals */
+  --secondary: oklch(0.28 0.08 282);         /* between card and border */
+  --secondary-foreground: oklch(0.955 0.012 291);
+  --muted: oklch(0.22 0.07 282);             /* between bg and card */
+  --muted-foreground: oklch(0.587 0.030 288);/* #7B7A8E */
+  --accent: oklch(0.26 0.13 285);            /* hover highlights */
+  --accent-foreground: oklch(0.955 0.012 291);
 
-  /* Borders & Inputs — diferenciados entre sí */
-  --border: oklch(0.28 0.06 276);            /* L=28 — visible sobre card (L=13) */
-  --input: oklch(0.19 0.06 276);             /* L=19 — fondo de input, entre muted y secondary */
-  --ring: oklch(0.62 0.26 295);              /* igual a primary — focus ring coherente */
+  /* Borders & Inputs */
+  --border: oklch(0.316 0.083 284);          /* #2E2A5A */
+  --input: oklch(0.24 0.07 282);             /* between muted and card */
+  --ring: oklch(0.452 0.246 297);            /* = primary */
 
-  /* Destructivo */
+  /* Destructive */
   --destructive: oklch(0.577 0.245 27.325);
 
-  /* Arquetipos */
-  --visionary: oklch(0.52 0.24 333);              /* magenta */
-  --visionary-foreground: oklch(0.96 0.01 277);   /* blanco — contraste ~6:1 sobre magenta L=52 */
-  --strategist: oklch(0.68 0.14 279);             /* lavender */
-  --strategist-foreground: oklch(0.09 0.04 277);  /* oscuro — contraste ~8:1 sobre lavender L=68 */
-  --builder-archetype: oklch(0.84 0.15 140);      /* green */
-  --builder-foreground: oklch(0.09 0.04 277);     /* oscuro — contraste ~10:1 sobre green L=84 */
+  /* Archetypes */
+  --visionary: oklch(0.456 0.194 344);       /* #990070 */
+  --visionary-foreground: oklch(0.955 0.012 291);
+  --strategist: oklch(0.640 0.160 289);      /* #8B78E6 */
+  --strategist-foreground: oklch(0.176 0.063 281);
+  --builder-archetype: oklch(0.831 0.195 144);/* #6EE76E */
+  --builder-foreground: oklch(0.176 0.063 281);
 
   /* Base radius = 8px */
   --radius: 0.5rem;
 
-  /* Sidebar — mapped to design system tokens */
-  --sidebar: oklch(0.11 0.05 276);               /* slightly lighter than background */
-  --sidebar-foreground: oklch(0.96 0.01 277);    /* = foreground */
-  --sidebar-primary: oklch(0.62 0.26 295);       /* = primary */
-  --sidebar-primary-foreground: oklch(0.09 0.04 277);
-  --sidebar-accent: oklch(0.22 0.14 290);        /* purple-tinted active/hover state */
-  --sidebar-accent-foreground: oklch(0.96 0.01 277);
-  --sidebar-border: oklch(0.28 0.06 276);        /* = border */
-  --sidebar-ring: oklch(0.62 0.26 295);          /* = ring */
+  /* Sidebar */
+  --sidebar: oklch(0.235 0.075 282);         /* = card = #1A1740 */
+  --sidebar-foreground: oklch(0.587 0.030 288);/* = muted-foreground = #7B7A8E */
+  --sidebar-primary: oklch(0.452 0.246 297); /* = primary */
+  --sidebar-primary-foreground: oklch(0.955 0.012 291);
+  --sidebar-accent: oklch(0.452 0.246 297);  /* = primary — active nav bg */
+  --sidebar-accent-foreground: oklch(0.955 0.012 291);
+  --sidebar-border: oklch(0.316 0.083 284);  /* = border */
+  --sidebar-ring: oklch(0.452 0.246 297);
 }
 
 /* Leaflet popup dark theme override */
