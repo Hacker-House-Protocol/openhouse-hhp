@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils"
 import { ARCHETYPES } from "@/lib/onboarding"
 import type { UserProfile, SuggestedBuilder, Community } from "@/lib/types"
 
-type Tab = "homies" | "community"
+type Tab = "builders" | "community"
 
 /* ── Builder Card (carousel) ── */
 function NetworkBuilderCard({
@@ -157,8 +157,8 @@ function CommunityCard({ community }: { community: Community }) {
   )
 }
 
-/* ── Homies Swipe Card ── */
-function HomiesSwipeCard({
+/* ── Builders Swipe Card ── */
+function BuildersSwipeCard({
   builder,
   onSwipe,
   isTop,
@@ -610,7 +610,7 @@ function CardSkeleton({ variant = "builder" }: { variant?: "builder" | "communit
 
 /* ── Empty Placeholder ── */
 function EmptyPlaceholder({ type }: { type: "network" | "community" }) {
-  const label = type === "network" ? "homies" : "communities"
+  const label = type === "network" ? "builders" : "communities"
   const action = type === "network" ? "connect with builders" : "join or create one"
 
   return (
@@ -627,9 +627,9 @@ function EmptyPlaceholder({ type }: { type: "network" | "community" }) {
 
 /* ── Main Page ── */
 export default function BuildersPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("homies")
+  const [activeTab, setActiveTab] = useState<Tab>("builders")
   const [viewMode, setViewMode] = useState<"list" | "swipe">("list")
-  const [homiesCardIndex, setHomiesCardIndex] = useState(0)
+  const [buildersCardIndex, setBuildersCardIndex] = useState(0)
   const [communityCardIndex, setCommunityCardIndex] = useState(0)
 
   // Data hooks
@@ -645,11 +645,11 @@ export default function BuildersPage() {
   const myCommunities = communities.filter((c) => c.is_member)
   const suggestedCommunities = communities.filter((c) => !c.is_member)
 
-  // Homies swipe
+  // Builders swipe
   const allBuildersForSwipe = [
     ...(suggestedBuilders ?? []),
   ]
-  const remainingHomiesCards = allBuildersForSwipe.slice(homiesCardIndex)
+  const remainingBuildersCards = allBuildersForSwipe.slice(buildersCardIndex)
 
   // Community swipe
   const remainingCommunityCards = communities.slice(communityCardIndex)
@@ -685,15 +685,15 @@ export default function BuildersPage() {
       <div className="flex gap-2 bg-card p-1 rounded-lg">
         <button
           type="button"
-          onClick={() => setActiveTab("homies")}
+          onClick={() => setActiveTab("builders")}
           className={cn(
             "flex-1 py-3 px-4 rounded-lg font-medium transition-colors",
-            activeTab === "homies"
+            activeTab === "builders"
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          Homies
+          Builders
         </button>
         <button
           type="button"
@@ -712,26 +712,26 @@ export default function BuildersPage() {
       {/* ══════════════════════════════════════════════ */}
       {/* ── HOMIES TAB ── */}
       {/* ══════════════════════════════════════════════ */}
-      {activeTab === "homies" && (
+      {activeTab === "builders" && (
         <>
           {/* Swipe Mode */}
           {viewMode === "swipe" && (
             <div className="max-w-md mx-auto w-full">
               <p className="text-center text-muted-foreground text-sm mb-4">
-                {remainingHomiesCards.length} builders left
+                {remainingBuildersCards.length} builders left
               </p>
               <div className="relative h-[550px] md:h-[600px]">
-                {remainingHomiesCards.length > 0 ? (
+                {remainingBuildersCards.length > 0 ? (
                   <>
-                    {remainingHomiesCards
+                    {remainingBuildersCards
                       .slice(0, 2)
                       .reverse()
                       .map((builder, index) => (
-                        <HomiesSwipeCard
+                        <BuildersSwipeCard
                           key={builder.id}
                           builder={builder}
-                          onSwipe={() => setHomiesCardIndex((prev) => prev + 1)}
-                          isTop={index === remainingHomiesCards.slice(0, 2).length - 1}
+                          onSwipe={() => setBuildersCardIndex((prev) => prev + 1)}
+                          isTop={index === remainingBuildersCards.slice(0, 2).length - 1}
                         />
                       ))}
                     <p className="absolute -bottom-8 left-0 right-0 text-center text-muted-foreground text-sm">
@@ -746,7 +746,7 @@ export default function BuildersPage() {
                     <h3 className="font-display font-bold text-xl text-foreground mb-2">All caught up!</h3>
                     <p className="text-muted-foreground mb-6">You have seen all builders</p>
                     <button
-                      onClick={() => setHomiesCardIndex(0)}
+                      onClick={() => setBuildersCardIndex(0)}
                       className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity"
                     >
                       Start Over
