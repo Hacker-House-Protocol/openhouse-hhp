@@ -297,7 +297,7 @@ export default function EventDetailPage({
                           </p>
                         )}
                         <p className="text-[10px] font-mono text-muted-foreground mt-auto">
-                          {hh.capacity} spots · {{ paid: "Co-payment", free: "Sponsored", staking: "Staking" }[hh.modality] ?? hh.modality}
+                          {hh.capacity} spots · {({ paid: "Co-payment", free: "Sponsored", staking: "Staking" } as Record<string, string>)[hh.modality as string] ?? hh.modality}
                         </p>
                       </div>
                     </Link>
