@@ -1,6 +1,7 @@
 "use client"
 
 import { PageContainer } from "../_components/page-container"
+import { FriendRequests } from "./_components/friend-requests"
 import { NotificationList } from "./_components/notification-list"
 
 export default function NotificationsPage() {
@@ -15,6 +16,7 @@ export default function NotificationsPage() {
             Stay updated on connections and applications.
           </p>
         </div>
+        <FriendRequests />
         <NotificationList />
       </div>
     </PageContainer>
