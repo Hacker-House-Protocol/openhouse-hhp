@@ -284,7 +284,7 @@ export default function EventDetailPage({
                             color: hh.status === "open" ? "var(--primary-foreground)" : "var(--foreground)",
                           }}
                         >
-                          {{ open: "Open", full: "Full", active: "Active", finished: "Finished" }[hh.status] ?? hh.status}
+                          {({ open: "Open", full: "Full", active: "Active", finished: "Finished" } as Record<string, string>)[hh.status as string] ?? hh.status}
                         </span>
                       </div>
                       <div className="p-2.5 flex flex-col gap-1 flex-1">
