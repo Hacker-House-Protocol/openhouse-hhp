@@ -30,6 +30,7 @@ These are **deliberately separate** from the global `events` system (`HHPEvent`)
 - Empty state with "New event" CTA for the creator, informative copy for others
 
 ### Out of scope (Phase 2)
+- Mini-events inside Hacker Houses (table already supports it via nullable `hacker_house_id` — only routes + UI pending)
 - Member-created events (or propose + creator approval)
 - Notification fan-out to members on new event
 - Cover image per event
@@ -49,15 +50,20 @@ These are **deliberately separate** from the global `events` system (`HHPEvent`)
 
 ## Data Model
 
-```typescript
-type CommunityEventLocationType = "online" | "in_person"
+> **Extensibility decision**: mini-events will eventually also live inside Hacker Houses. The table is named `mini_events` and follows the same dual-nullable-FK pattern as `applications` (exactly one of `community_id` / `hacker_house_id` non-null, enforced by CHECK). The MVP only exposes community-scoped routes and UI — no Hacker House surface yet.
 
-interface CommunityEvent {
+```typescript
+type MiniEventLocationType = "online" | "in_person"
+type MiniEventParentType = "community" | "hacker_house"
+
+interface MiniEvent {
   id: string
-  community_id: string
+  parent_type: MiniEventParentType   // convenience discriminator (MVP: always "community")
+  community_id: string | null
+  hacker_house_id: string | null     // MVP: always null
   title: string
   description: string | null
-  location_type: CommunityEventLocationType
+  location_type: MiniEventLocationType
   meeting_url: string | null      // required when online
   city: string | null             // required when in_person
   venue: string | null            // optional free text, in_person only
@@ -76,12 +82,13 @@ interface CommunityEvent {
 }
 ```
 
-### DB — table `community_events`
+### DB — table `mini_events`
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | id | uuid | PK, default gen_random_uuid() | |
-| community_id | uuid | FK → communities(id) ON DELETE CASCADE, NOT NULL | |
+| community_id | uuid | FK → communities(id) ON DELETE CASCADE, nullable | |
+| hacker_house_id | uuid | FK → hacker_houses(id) ON DELETE CASCADE, nullable | MVP: always NULL |
 | creator_id | uuid | FK → users(id), NOT NULL | who created it |
 | title | text | NOT NULL | max 80 chars (API-validated) |
 | description | text | | max 500 chars (API-validated) |
@@ -97,14 +104,16 @@ interface CommunityEvent {
 
 CHECK: `(location_type = 'online' AND meeting_url IS NOT NULL) OR (location_type = 'in_person' AND city IS NOT NULL)`
 
+CHECK (exactly one parent, same pattern as `applications`): `(community_id IS NOT NULL)::int + (hacker_house_id IS NOT NULL)::int = 1`
+
 Index: `(community_id, start_at DESC)`
 
-### DB — table `community_event_attendees`
+### DB — table `mini_event_attendees`
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | id | uuid | PK, default gen_random_uuid() | |
-| event_id | uuid | FK → community_events(id) ON DELETE CASCADE, NOT NULL | |
+| event_id | uuid | FK → mini_events(id) ON DELETE CASCADE, NOT NULL | |
 | user_id | uuid | FK → users(id), NOT NULL | |
 | created_at | timestamptz | default now() | |
 
@@ -116,7 +125,7 @@ Constraint: `UNIQUE (event_id, user_id)`. Index on `event_id`.
 
 ### Create / Edit event (dialog, creator only)
 
-Form per `.claude/skills/forms/SKILL.md` — react-hook-form + Zod schema in `lib/schemas/community-event.ts`.
+Form per `.claude/skills/forms/SKILL.md` — react-hook-form + Zod schema in `lib/schemas/mini-event.ts`.
 
 - Title (`title`) — text, required, max 80
 - Description (`description`) — textarea, optional, max 500
@@ -188,5 +197,6 @@ Added to `services/api/communities.ts` (same domain), following existing pattern
 - **Assumption**: no `status` column — "upcoming" vs "past" is derived from `start_at`/`end_at` vs now. Cancelling = deleting (Phase 2 could add soft-cancel).
 - **Assumption**: meeting URL is hidden from non-attending users in the UI to nudge RSVP, but the API returns it to members (not worth over-engineering field-level redaction in MVP).
 - **Decision record**: separate table over reusing `events` — global events carry admin approval, verification, featured ordering, and geocoding that mini-events don't need; mixing them would force `WHERE community_id IS NULL` filters across the global feed and map.
+- **Decision record**: table named `mini_events` with dual nullable parent FKs (`community_id` / `hacker_house_id`) anticipating Hacker House mini-events — same proven pattern as `applications`. Avoids a future table rename + data migration.
 - **Related**: `docs/features/hack-spaces.md`, `docs/features/hacker-houses.md` (Projects tab will surface these per community in the future), global events system (`services/api/events.ts`).
 - **Open question (Phase 2)**: when member-created events land, reuse a moderation pattern similar to `event-requests`.
