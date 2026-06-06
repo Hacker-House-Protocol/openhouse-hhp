@@ -129,14 +129,16 @@ export default function CommunityDetailPage() {
 
               {/* Edit (creator only) */}
               {isCreator && (
-                <button
+                <Button
+                  type="button"
+                  variant="pill-ghost"
+                  size="sm"
                   onClick={() => setIsEditing((v) => !v)}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-colors hover:border-primary hover:text-primary"
-                  style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}
+                  className="shrink-0 gap-1.5"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   {isEditing ? "Cancel" : "Edit"}
-                </button>
+                </Button>
               )}
 
               {/* Join / Leave */}
@@ -182,6 +184,9 @@ export default function CommunityDetailPage() {
                 image_url: community.image_url ?? "",
                 city: community.city ?? "",
                 country: community.country ?? "",
+                is_worldwide: community.is_worldwide,
+                verification_requested: community.verification_requested,
+                featured_requested: community.featured_requested,
               }}
               onFormSubmit={async (values) => {
                 await updateMutation.mutateAsync(values)
