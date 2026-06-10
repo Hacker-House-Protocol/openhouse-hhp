@@ -176,6 +176,13 @@ export async function POST(req: NextRequest) {
     event_start_date: has_event ? (fields.event_start_date || null) : null,
     event_end_date: has_event ? (fields.event_end_date || null) : null,
     event_timing: has_event ? (fields.event_timing ?? []) : [],
+    // Web3 escrow fields — only set for paid/staking modality
+    host_safe: fields.host_safe || null,
+    deposit_amount_usdc: fields.deposit_amount_usdc ?? null,
+    withdraw_date: fields.withdraw_date || null,
+    house_type: fields.house_type || null,
+    yield_mode: fields.yield_mode || null,
+    yield_dest: fields.yield_dest || null,
   }
 
   const { data, error } = await supabaseServer

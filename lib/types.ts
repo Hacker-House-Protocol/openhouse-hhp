@@ -244,6 +244,14 @@ export interface HackerHouse {
   creator: HackerHouseParticipant
   participants: HackerHouseParticipant[]
   participants_count: number
+  // Web3 escrow fields — only populated for paid/staking modality
+  escrow_address: string | null
+  host_safe: string | null
+  deposit_amount_usdc: number | null
+  withdraw_date: string | null
+  house_type: 'co_payment' | 'staking' | 'hybrid' | null
+  yield_mode: 'none' | 'gmx' | null
+  yield_dest: 'host' | 'builders' | null
 }
 
 export interface HackerHouseListParams {

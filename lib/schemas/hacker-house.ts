@@ -6,6 +6,9 @@ const EVENT_TIMINGS = ["before", "during", "after"] as const
 
 const HOUSE_MODALITIES = ["free", "paid", "staking"] as const
 const CONTRACT_TYPES = ["multisig", "admin_wallet"] as const
+const HOUSE_TYPES = ["co_payment", "staking", "hybrid"] as const
+const YIELD_MODES = ["none", "gmx"] as const
+const YIELD_DESTS = ["host", "builders"] as const
 
 export const createHackerHouseSchema = z.object({
   name: z.string().min(3, "Minimum 3 characters").max(80),
@@ -41,6 +44,13 @@ export const createHackerHouseSchema = z.object({
   application_form_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   lat: z.number().optional(),
   lng: z.number().optional(),
+  // Web3 escrow fields — required when modality is paid or staking
+  host_safe: z.string().optional(),
+  deposit_amount_usdc: z.number().positive("Must be greater than 0").optional(),
+  withdraw_date: z.string().optional(),
+  house_type: z.enum(HOUSE_TYPES).optional(),
+  yield_mode: z.enum(YIELD_MODES).optional(),
+  yield_dest: z.enum(YIELD_DESTS).optional(),
   has_event: z.boolean().optional(),
   event_name: z.string().optional(),
   event_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
@@ -53,6 +63,7 @@ export type CreateHackerHouseInput = z.infer<typeof createHackerHouseSchema>
 
 export const updateHackerHouseSchema = createHackerHouseSchema.partial().extend({
   status: z.enum(["open", "full", "active", "finished"]).optional(),
+  escrow_address: z.string().optional(), // saved after contract deploy
 })
 
 export type UpdateHackerHouseInput = z.infer<typeof updateHackerHouseSchema>
@@ -69,4 +80,4 @@ export const reviewHackerHouseApplicationSchema = z.object({
 
 export type ReviewHackerHouseApplicationInput = z.infer<typeof reviewHackerHouseApplicationSchema>
 
-export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES, CONTRACT_TYPES }
+export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES, CONTRACT_TYPES, HOUSE_TYPES, YIELD_MODES, YIELD_DESTS }
