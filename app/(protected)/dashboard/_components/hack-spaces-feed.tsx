@@ -34,21 +34,12 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
         </div>
         <div className="flex items-center gap-2">
           {hackSpaces.length > 0 && (
-            <Link
-              href="/dashboard/hack-spaces"
-              className="text-primary text-sm font-medium flex items-center gap-1"
-            >
+            <Link href="/dashboard/hack-spaces" className="flex text-primary text-sm font-medium items-center gap-1">
               See all <ArrowRight className="size-4" />
             </Link>
           )}
-          <Link href="/dashboard/hack-spaces/create">
-            <Button
-              size="sm"
-              variant="pill"
-              className="px-4 text-xs"
-            >
-              + Create
-            </Button>
+          <Link href="/dashboard/hack-spaces/create" className="hidden sm:block">
+            <Button size="sm" variant="pill" className="px-4 text-xs">+ Create</Button>
           </Link>
         </div>
       </div>
@@ -56,15 +47,12 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
       {/* Content */}
       {isLoading ? (
         <div className="overflow-x-auto lg:overflow-visible">
-          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:w-full">
+          <div className="flex gap-4 pb-2 w-max items-stretch lg:grid lg:grid-cols-4 lg:gap-6 lg:w-full">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="min-w-67.5 lg:min-w-0 shrink-0">
-                <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-4 h-[220px]">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3 w-32" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
+              <div key={i} className="w-[72vw] sm:w-70 lg:w-auto lg:min-w-0 lg:max-w-full shrink-0 bg-card border border-border rounded-lg p-3 flex flex-col gap-3 h-[180px]">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-4 w-full hidden sm:block" />
               </div>
             ))}
           </div>
@@ -89,10 +77,13 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
         </div>
       ) : (
         <div className="overflow-x-auto lg:overflow-visible">
-          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:w-full">
+          <div className="flex gap-4 pb-2 w-max items-stretch lg:grid lg:grid-cols-4 lg:gap-6 lg:w-full">
             {preview.map((hs) => (
-              <div key={hs.id} className="min-w-67.5 lg:min-w-0 shrink-0">
-                <HackSpaceCard hackSpace={hs} currentUserId={currentUserId} />
+              <div key={hs.id} className="w-[72vw] sm:w-70 lg:w-auto lg:min-w-0 lg:max-w-full shrink-0">
+                <HackSpaceCard
+                  hackSpace={hs}
+                  currentUserId={currentUserId}
+                />
               </div>
             ))}
           </div>

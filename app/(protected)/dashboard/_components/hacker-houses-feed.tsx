@@ -34,21 +34,12 @@ export function HackerHousesFeed({ currentUserId }: HackerHousesFeedProps) {
         </div>
         <div className="flex items-center gap-2">
           {hackerHouses.length > 0 && (
-            <Link
-              href="/dashboard/hacker-houses"
-              className="text-primary text-sm font-medium flex items-center gap-1"
-            >
+            <Link href="/dashboard/hacker-houses" className="flex text-primary text-sm font-medium items-center gap-1">
               See all <ArrowRight className="size-4" />
             </Link>
           )}
-          <Link href="/dashboard/hacker-houses/create">
-            <Button
-              size="sm"
-              variant="pill"
-              className="px-4 text-xs"
-            >
-              + Create
-            </Button>
+          <Link href="/dashboard/hacker-houses/create" className="hidden sm:block">
+            <Button size="sm" variant="pill" className="px-4 text-xs">+ Create</Button>
           </Link>
         </div>
       </div>
@@ -56,15 +47,12 @@ export function HackerHousesFeed({ currentUserId }: HackerHousesFeedProps) {
       {/* Content */}
       {isLoading ? (
         <div className="overflow-x-auto lg:overflow-visible">
-          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:w-full">
+          <div className="flex gap-4 pb-2 w-max items-stretch lg:grid lg:grid-cols-4 lg:gap-6 lg:w-full">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="min-w-[280px] lg:min-w-0 shrink-0">
-                <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-4 h-[180px]">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3 w-32" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
+              <div key={i} className="min-w-[72vw] sm:min-w-70 lg:min-w-0 lg:max-w-full shrink-0 bg-card border border-border rounded-lg p-3 flex flex-col gap-3 h-[180px]">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-4 w-full hidden sm:block" />
               </div>
             ))}
           </div>
@@ -89,9 +77,9 @@ export function HackerHousesFeed({ currentUserId }: HackerHousesFeedProps) {
         </div>
       ) : (
         <div className="overflow-x-auto lg:overflow-visible">
-          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:w-full">
+          <div className="flex gap-4 pb-2 w-max items-stretch lg:grid lg:grid-cols-4 lg:gap-6 lg:w-full">
             {preview.map((hh) => (
-              <div key={hh.id} className="min-w-[280px] lg:min-w-0 shrink-0">
+              <div key={hh.id} className="min-w-[72vw] sm:min-w-70 lg:min-w-0 lg:max-w-full shrink-0">
                 <HackerHouseCard hackerHouse={hh} currentUserId={currentUserId} />
               </div>
             ))}
