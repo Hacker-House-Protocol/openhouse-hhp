@@ -2,38 +2,23 @@
 
 import { use, useState, useEffect } from "react"
 import Link from "next/link"
-import { useHackerHouse, useJoinHackerHouse } from "@/services/api/hacker-houses"
-import { useProfile } from "@/services/api/profile"
-import { PageContainer } from "../../../_components/page-container"
-import { ARCHETYPES } from "@/lib/onboarding"
+import { ArrowLeft, CalendarDays, MapPin, Check, Users } from "lucide-react"
+import { formatUnits } from "viem"
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn, parseLocalDate } from "@/lib/utils"
-import { MapPin, Users, Check, ArrowLeft, Lock } from "lucide-react"
-import type { HouseModality } from "@/lib/types"
+import { useHackerHouse } from "@/services/api/hacker-houses"
+import { useProfile } from "@/services/api/profile"
+import { ARCHETYPES } from "@/lib/onboarding"
+import { useEscrowState } from "@/hooks/use-escrow-state"
+import { useKernelWallet } from "@/hooks/use-kernel-wallet"
+import { useBuilderSpot } from "@/hooks/use-builder-spot"
+import { usePendingYield } from "@/hooks/use-pending-yield"
+import { PageContainer } from "../../../_components/page-container"
+import { EscrowStatus } from "./_components/escrow-status"
+import { DepositSection } from "./_components/deposit-section"
+import { HostActions } from "./_components/host-actions"
+import { YieldSection } from "./_components/yield-section"
+import { parseLocalDate } from "@/lib/utils"
 
-type PaymentStep = "details" | "payment" | "success"
-
-function getCostLabel(modality: HouseModality, pricePerPerson: number | null, capacity: number) {
-  const price = pricePerPerson ?? 0
-  switch (modality) {
-    case "paid":
-      return {
-        share: price > 0 ? `${price} USDC` : "TBD",
-        total: price > 0 ? `${price * capacity} USDC` : "TBD",
-        method: "USDC",
-      }
-    case "staking":
-      return {
-        share: price > 0 ? `${price} USDC` : "TBD",
-        total: price > 0 ? `${price * capacity} USDC` : "TBD",
-        method: "USDC",
-      }
-    case "free":
-      return { share: "Free", total: "Sponsored", method: "N/A" }
-  }
-}
-
-/* Simple CSS confetti */
 function ConfettiPiece({ index }: { index: number }) {
   const colors = [
     "var(--builder-archetype)",
@@ -46,7 +31,6 @@ function ConfettiPiece({ index }: { index: number }) {
   const left = Math.random() * 100
   const delay = Math.random() * 0.8
   const duration = 2 + Math.random() * 1.5
-
   return (
     <div
       className="absolute w-3 h-3 rounded-sm opacity-0"
@@ -66,37 +50,42 @@ export default function PaymentPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const { data: hackerHouse, isLoading } = useHackerHouse(id)
+  const { data: house, isLoading } = useHackerHouse(id)
   const { data: profile } = useProfile({ enabled: true })
-  const [step, setStep] = useState<PaymentStep>("details")
-  const [selectedPayment, setSelectedPayment] = useState("usdc")
+
+  const { connect, kernelAddress, isReady: walletReady } = useKernelWallet()
+  const [depositSuccess, setDepositSuccess] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
-  const joinMutation = useJoinHackerHouse(id)
 
   useEffect(() => {
-    if (step === "success") {
-      setShowConfetti(true)
-    }
-  }, [step])
+    if (depositSuccess) setShowConfetti(true)
+  }, [depositSuccess])
 
-  async function handleConfirmPayment() {
-    await joinMutation.mutateAsync()
-    setStep("success")
-  }
+  const escrowAddress = (house?.escrow_address ?? null) as `0x${string}` | null
+  const { data: escrow, isLoading: escrowLoading } = useEscrowState(escrowAddress)
+  const { data: builderSpot } = useBuilderSpot({
+    escrowAddress,
+    builderAddress: kernelAddress,
+  })
+
+  const hasGmxYield = house?.yield_mode === "gmx"
+  const { data: yieldData, isLoading: yieldLoading } = usePendingYield(escrowAddress, hasGmxYield)
+
+  const isOwner = profile?.id === house?.creator.id
 
   if (isLoading) {
     return (
       <PageContainer>
-        <div className="max-w-md mx-auto py-6 flex flex-col gap-6">
+        <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-4">
           <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-32 rounded-2xl" />
-          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
         </div>
       </PageContainer>
     )
   }
 
-  if (!hackerHouse) {
+  if (!house) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-foreground font-display font-bold text-xl">House not found</p>
@@ -107,15 +96,34 @@ export default function PaymentPage({
     )
   }
 
-  const costLabel = getCostLabel(hackerHouse.modality, hackerHouse.price_per_person, hackerHouse.capacity)
-  const allParticipants = [hackerHouse.creator, ...(hackerHouse.participants ?? [])]
-  const isStaking = hackerHouse.modality === "staking"
+  // Escrow not yet deployed — house was created but contract deploy failed or is pending
+  if (!escrowAddress) {
+    return (
+      <PageContainer>
+        <div className="max-w-md mx-auto px-4 py-6">
+          <div className="flex items-center gap-4 mb-6">
+            <Link
+              href={`/dashboard/hacker-houses/${id}`}
+              className="size-10 bg-card rounded-full flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="size-5" />
+            </Link>
+            <h1 className="font-display font-bold text-xl text-foreground">Payment</h1>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 text-center text-muted-foreground text-sm">
+            Escrow contract not deployed yet. The host needs to complete house setup.
+          </div>
+        </div>
+      </PageContainer>
+    )
+  }
 
-  /* ── SUCCESS ── */
-  if (step === "success") {
+  // Deposit success — full-screen celebration
+  if (depositSuccess) {
+    const amountDisplay = escrow ? Number(formatUnits(escrow.depositAmount, 6)).toFixed(2) : "–"
+    const isStaking = house.house_type === "staking"
     return (
       <PageContainer className="!p-0">
-        {/* Inject confetti keyframes */}
         <style>{`
           @keyframes confettiFall {
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
@@ -148,21 +156,14 @@ export default function PaymentPage({
           )}
 
           {/* Floating logo */}
-          <div
-            className="relative mb-8"
-            style={{ animation: "floatUp 2s ease-in-out infinite" }}
-          >
-            <div
-              className="size-40 relative"
-              style={{ animation: "popIn 0.8s ease-out 0.2s both" }}
-            >
+          <div className="relative mb-8" style={{ animation: "floatUp 2s ease-in-out infinite" }}>
+            <div className="size-40 relative" style={{ animation: "popIn 0.8s ease-out 0.2s both" }}>
               <img
                 src="/assets/hacker-house-protocol-logo.svg"
                 alt="Success"
                 className="w-full h-full object-contain"
               />
             </div>
-            {/* Sparkles */}
             <div
               className="absolute -top-2 -right-2 size-4 bg-builder-archetype rounded-full"
               style={{ animation: "pulse 1.5s infinite" }}
@@ -178,19 +179,18 @@ export default function PaymentPage({
           </div>
 
           <h1 className="font-display font-bold text-3xl text-foreground mb-2 text-center">
-            {isStaking ? "Stake Successful" : "Payment Successful"}
+            {isStaking ? "Stake Successful" : "Deposit Successful"}
           </h1>
-
           <p className="text-muted-foreground text-center mb-8 max-w-sm">
             {isStaking
-              ? "Your stake is locked. It will be returned if the house doesn't fill before the deadline."
-              : "Your deposit is now part of the pooling reservation which will not be completed until all hackers have paid their share."}
+              ? "Your stake is locked in escrow. It will be returned if the house is cancelled."
+              : "Your deposit is held in escrow until the host releases funds. Refunded in full if the house is cancelled."}
           </p>
 
           {/* Summary card */}
           <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 mb-8">
             <h3 className="text-muted-foreground text-sm mb-4">
-              {isStaking ? "Staking Summary" : "Payment Summary"}
+              {isStaking ? "Staking Summary" : "Deposit Summary"}
             </h3>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -198,19 +198,19 @@ export default function PaymentPage({
                   <Check className="size-4 text-background" />
                 </div>
                 <span className="text-foreground">
-                  {isStaking ? "My Stake" : "My Share Total"}
+                  {isStaking ? "My Stake" : "My Deposit"}
                 </span>
               </div>
-              <span className="font-bold text-xl text-foreground">{costLabel.share}</span>
+              <span className="font-bold text-xl text-foreground">{amountDisplay} USDC</span>
             </div>
           </div>
 
           <div className="w-full max-w-sm">
             <Link
-              href="/dashboard"
+              href={`/dashboard/hacker-houses/${id}`}
               className="w-full py-4 px-6 bg-builder-archetype text-background font-bold rounded-full hover:opacity-90 transition-opacity text-center block"
             >
-              Back to Home
+              Back to House
             </Link>
           </div>
         </div>
@@ -218,115 +218,11 @@ export default function PaymentPage({
     )
   }
 
-  /* ── PAYMENT STEP ── */
-  if (step === "payment") {
-    return (
-      <PageContainer>
-        <div className="max-w-md mx-auto px-4 py-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <button
-              onClick={() => setStep("details")}
-              className="size-10 bg-card rounded-full flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="size-5" />
-            </button>
-            <h1 className="font-display font-bold text-2xl text-foreground">
-              {isStaking ? "Stake to Join" : "Pay My Share"}
-            </h1>
-          </div>
-
-          {/* House info mini card */}
-          <div className="bg-card border border-border rounded-2xl p-4 mb-6">
-            <div className="flex gap-4">
-              <div className="relative size-20 rounded-xl overflow-hidden shrink-0 bg-muted">
-                <img
-                  src={hackerHouse.images[0] ?? "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200&h=200&fit=crop"}
-                  alt={hackerHouse.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-foreground mb-1">{hackerHouse.name}</h3>
-                <div className="flex items-center gap-1 text-muted-foreground text-sm mb-1">
-                  <MapPin className="size-3" />
-                  <span>{hackerHouse.city}, {hackerHouse.country}</span>
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                  <Users className="size-3" />
-                  <span>{allParticipants.length} Hacker Homies</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment method */}
-          <div className="mb-8">
-            <h3 className="text-foreground font-medium mb-3">
-              {isStaking ? "Staking Method" : "Payment Method"}
-            </h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              We only accept payments via USDC at this time.
-            </p>
-
-            <button
-              onClick={() => setSelectedPayment("usdc")}
-              className={cn(
-                "w-full p-4 rounded-xl border transition-colors flex items-center gap-3",
-                "bg-primary/20 border-primary",
-              )}
-            >
-              <div className="size-10 bg-primary rounded-full flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">
-                  {isStaking ? "Ξ" : "$"}
-                </span>
-              </div>
-              <span className="text-foreground font-medium">{isStaking ? "ETH" : "USDC"}</span>
-              <div className="ml-auto size-6 bg-primary rounded-full flex items-center justify-center">
-                <Check className="size-4 text-primary-foreground" />
-              </div>
-            </button>
-          </div>
-
-          {/* Amount summary */}
-          <div className="bg-card border border-border rounded-2xl p-4 mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-muted-foreground">
-                {isStaking ? "Your stake" : "Your share"}
-              </span>
-              <span className="text-foreground">{costLabel.share}</span>
-            </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-muted-foreground">Network fee</span>
-              <span className="text-foreground">$0.00</span>
-            </div>
-            <div className="border-t border-border my-3" />
-            <div className="flex items-center justify-between">
-              <span className="text-foreground font-bold">Total</span>
-              <span className="text-foreground font-bold text-xl">{costLabel.share}</span>
-            </div>
-          </div>
-
-          {/* Pay button */}
-          <button
-            onClick={handleConfirmPayment}
-            disabled={joinMutation.isPending}
-            className="w-full py-4 px-6 bg-builder-archetype text-background font-bold rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {isStaking && <Lock className="size-4" />}
-            {joinMutation.isPending ? "Confirming..." : isStaking ? "Confirm Stake" : "Pay Now"}
-          </button>
-        </div>
-      </PageContainer>
-    )
-  }
-
-  /* ── DETAILS STEP (default) ── */
   return (
     <PageContainer>
-      <div className="max-w-md mx-auto px-4 py-6">
+      <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-5 pb-12">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4">
           <Link
             href={`/dashboard/hacker-houses/${id}`}
             className="size-10 bg-card rounded-full flex items-center justify-center text-foreground hover:bg-muted transition-colors"
@@ -334,130 +230,141 @@ export default function PaymentPage({
             <ArrowLeft className="size-5" />
           </Link>
           <div>
-            <h1 className="font-display font-bold text-xl text-foreground">
-              {isStaking ? "Stake to Join" : "Pay My Share"}
-            </h1>
-            <p className="text-muted-foreground text-sm">{hackerHouse.name}</p>
+            <h1 className="font-display font-bold text-xl text-foreground">Escrow</h1>
+            <p className="text-muted-foreground text-sm">{house.name}</p>
           </div>
         </div>
 
-        {/* Reservation header */}
-        <div className="bg-gradient-to-br from-primary/30 to-strategist/30 border border-primary/50 rounded-2xl p-6 mb-6 relative overflow-hidden">
-          <div className="absolute top-2 right-2 opacity-30">
-            <img src="/assets/hacker-house-protocol-logo.svg" alt="" className="size-14" />
+        {/* Reservation card — hybrid */}
+        <div className="bg-gradient-to-br from-primary/30 to-strategist/30 border border-primary/50 rounded-2xl p-6 relative overflow-hidden">
+          <div className="absolute top-3 right-3 opacity-25">
+            <img src="/assets/hacker-house-protocol-logo.svg" alt="" className="size-16" />
           </div>
-          <p className="text-strategist text-sm font-medium mb-1">Reservation</p>
-          <h2 className="font-display font-bold text-2xl text-foreground mb-4">{hackerHouse.name}</h2>
-
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-            <MapPin className="size-4" />
-            <span>{hackerHouse.city}, {hackerHouse.country}</span>
-          </div>
-
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <span>When</span>
-            <span className="text-foreground">
-              {parseLocalDate(hackerHouse.start_date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}
-              –
-              {parseLocalDate(hackerHouse.end_date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
+          <p className="text-primary text-xs font-mono mb-1 uppercase tracking-wide">Reservation</p>
+          <h2 className="font-display font-bold text-2xl text-foreground mb-4">{house.name}</h2>
+          <div className="flex flex-col gap-1.5 text-muted-foreground text-sm mb-4">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="size-3.5 shrink-0" />
+              {house.city}, {house.country}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="size-3.5 shrink-0" />
+              {parseLocalDate(house.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {" – "}
+              {parseLocalDate(house.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </span>
           </div>
-        </div>
-
-        {/* Price card */}
-        <div className="bg-card border border-border rounded-2xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-muted-foreground">
-              {isStaking ? "Total Staking Pool" : "Total Pool"}
-            </span>
-            <span className="text-foreground font-bold text-lg">{costLabel.total}</span>
-          </div>
-          <p className="text-muted-foreground text-sm mb-4">
-            {isStaking
-              ? "Your stake is locked until checkout. Returned if house doesn't fill."
-              : "We'll hold your reservation for 24 hours for everyone to make their payments."}
-          </p>
-
-          <div className="flex items-center justify-between py-3 border-t border-border">
-            <div className="flex items-center gap-2">
-              <div className="size-8 bg-primary rounded-full flex items-center justify-center">
-                <Users className="size-4 text-primary-foreground" />
-              </div>
-              <span className="text-foreground">{allParticipants.length} Hacker Homies</span>
+          <div className="border-t border-primary/20 pt-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
+              <Users className="size-3.5" />
+              <span>{[house.creator, ...house.participants].length} Hacker Homies</span>
             </div>
-            <span className="text-builder-archetype font-bold">{costLabel.share}</span>
+            {house.deposit_amount_usdc && (
+              <span className="text-builder-archetype font-bold font-mono text-sm">
+                {(house.deposit_amount_usdc * house.capacity).toLocaleString()} USDC pool
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Participants */}
-        <div className="mb-8">
-          <h3 className="text-foreground font-medium mb-3">Hacker Homies</h3>
-          <div className="flex flex-col gap-3">
-            {allParticipants.map((p, i) => {
-              const archetype = ARCHETYPES.find((a) => a.id === p.archetype)
-              const isCreator = p.id === hackerHouse.creator.id
-              return (
-                <div
-                  key={p.id ?? i}
-                  className="flex items-center justify-between bg-card border border-border rounded-xl p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="size-10 rounded-full border-2 overflow-hidden flex items-center justify-center bg-muted"
-                      style={{
-                        borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)",
-                      }}
-                    >
-                      {p.avatar_url ? (
-                        <img src={p.avatar_url} alt={p.handle ?? ""} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xs font-mono text-muted-foreground">
-                          {p.handle?.charAt(0)?.toUpperCase() ?? "?"}
+        {/* Hacker Homies */}
+        {(() => {
+          const allParticipants = [house.creator, ...house.participants]
+          return (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Users className="size-4 text-muted-foreground" />
+                <h3 className="font-display font-bold text-foreground">Hacker Homies</h3>
+                <span className="text-muted-foreground text-sm font-mono">({allParticipants.length})</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {allParticipants.map((p, i) => {
+                  const archetype = ARCHETYPES.find((a) => a.id === p.archetype)
+                  const isCreator = p.id === house.creator.id
+                  return (
+                    <div key={p.id ?? i} className="flex items-center justify-between bg-card border border-border rounded-xl p-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="size-10 rounded-full border-2 overflow-hidden flex items-center justify-center bg-muted shrink-0"
+                          style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
+                        >
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.handle ?? ""} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {p.handle?.charAt(0)?.toUpperCase() ?? "?"}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-foreground text-sm">@{p.handle ?? "anon"}</p>
+                          {isCreator && <p className="text-xs text-muted-foreground font-mono">Host</p>}
+                        </div>
+                      </div>
+                      {archetype && (
+                        <span className="text-xs font-mono" style={{ color: `var(${archetype.colorVar})` }}>
+                          {archetype.name}
                         </span>
                       )}
                     </div>
-                    <span className="text-foreground text-sm">@{p.handle ?? "anon"}</span>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Pending</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
-        {/* My share summary */}
-        <div className="bg-background border border-builder-archetype/30 rounded-2xl p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-foreground">
-              {isStaking ? "My Stake" : "My Share Total"}
-            </span>
-            <span className="text-builder-archetype font-bold text-2xl">{costLabel.share}</span>
-          </div>
-        </div>
+        {/* Escrow Status — always shown */}
+        <EscrowStatus house={house} escrow={escrow} escrowLoading={escrowLoading} />
 
-        {/* Action buttons */}
-        <div className="flex flex-col gap-3 pb-8">
-          <button
-            onClick={() => setStep("payment")}
-            className="w-full py-4 px-6 bg-builder-archetype text-background font-bold rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+        {/* Deposit Section — builders only */}
+        {!isOwner && escrow && (
+          <>
+            <DepositSection
+              escrowAddress={escrowAddress}
+              escrow={escrow}
+              builderSpot={builderSpot}
+              walletReady={walletReady}
+              houseType={house.house_type}
+              onConnect={connect}
+              onDepositSuccess={() => setDepositSuccess(true)}
+            />
+            {/* Do Later — only when deposit is still possible and builder hasn't deposited */}
+            {!builderSpot?.hasDeposited && !escrow.isFull && !escrow.isCancelled && !escrow.isReleased && (
+              <Link
+                href={`/dashboard/hacker-houses/${id}`}
+                className="w-full py-4 px-6 border border-border text-muted-foreground font-medium rounded-full hover:bg-card transition-colors text-center block"
+              >
+                Do Later
+              </Link>
+            )}
+          </>
+        )}
+
+        {/* Host Actions — creator only */}
+        {isOwner && escrow && (
+          <HostActions
+            escrowAddress={escrowAddress}
+            escrow={escrow}
+          />
+        )}
+
+        {/* GMX Yield — shown when house has gmx yield mode */}
+        {hasGmxYield && (
+          <YieldSection yieldData={yieldData} yieldLoading={yieldLoading} />
+        )}
+
+        {/* Escrow address */}
+        <div className="flex items-center justify-between text-xs font-mono text-muted-foreground px-1">
+          <span>Escrow contract</span>
+          <a
+            href={`https://sepolia.arbiscan.io/address/${escrowAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-primary transition-colors truncate max-w-[200px]"
           >
-            {isStaking && <Lock className="size-4" />}
-            {isStaking ? "Stake to Join" : "Pay My Share"}
-          </button>
-
-          <Link
-            href={`/dashboard/hacker-houses/${id}`}
-            className="w-full py-4 px-6 border border-border text-muted-foreground font-medium rounded-full hover:bg-card transition-colors text-center"
-          >
-            Do Later
-          </Link>
+            {escrowAddress.slice(0, 10)}…{escrowAddress.slice(-8)}
+          </a>
         </div>
       </div>
     </PageContainer>
