@@ -23,7 +23,8 @@ No new on-chain writes — this is read-only data surfacing. Yield distribution 
 |---|---|
 | `app/(protected)/dashboard/hacker-houses/[id]/payment/page.tsx` | GMX yield wired; deposit success screen (confetti + floating logo); reservation card redesign; Hacker Homies list; "Do Later" button |
 | `app/(protected)/dashboard/hacker-houses/[id]/payment/_components/deposit-section.tsx` | CTA renamed to "Pay My Share" / "Stake to Join" based on `house_type`; `onDepositSuccess` callback |
-| `app/(protected)/dashboard/hacker-houses/[id]/page.tsx` | `hasPaid` now includes on-chain deposit via `useBuilderSpot` — Key NFT button appears after web3 deposit |
+| `app/(protected)/dashboard/hacker-houses/[id]/page.tsx` | `hasPaid` now includes on-chain deposit via `useBuilderSpot` — Key NFT button appears after web3 deposit; **Live Yield section** with real on-chain data |
+| `app/(protected)/dashboard/_components/hacker-house-card.tsx` | GMX Yield badge on card image (static, DB-only — no RPC per card) |
 
 ---
 
@@ -41,6 +42,21 @@ No new on-chain writes — this is read-only data surfacing. Yield distribution 
 - "Back to House" → house detail page
 
 **CTA buttons** — "Pay My Share" (co_payment) or "Stake to Join" (staking) + "Do Later" secondary link.
+
+---
+
+## UI changes (house detail page)
+
+**Live Yield section** — shown when `yield_mode === 'gmx'` and `escrow_address` is set. Positioned after the Staking Pool section. Shows:
+- Total accrued USDC (real on-chain via `usePendingYield`, 60s poll) or "Accruing…" if zero
+- Pulsing GMX badge
+- Yield destination: "Goes to builders" with per-builder share, or "Goes to host"
+
+---
+
+## UI changes (house card)
+
+**GMX Yield badge** — appears on card image (bottom right) when `yield_mode === 'gmx'`. Static — reads from DB, no RPC call. Uses `strategist` color token.
 
 ---
 

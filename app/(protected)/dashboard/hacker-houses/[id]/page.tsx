@@ -14,6 +14,8 @@ import {
 import { useProfile } from "@/services/api/profile"
 import { useKernelWallet } from "@/hooks/use-kernel-wallet"
 import { useBuilderSpot } from "@/hooks/use-builder-spot"
+import { usePendingYield } from "@/hooks/use-pending-yield"
+import { formatUnits } from "viem"
 import {
   Briefcase,
   CalendarDays,
@@ -31,6 +33,7 @@ import {
   PenLine,
   Shield,
   Sparkles,
+  TrendingUp,
   Users,
   Utensils,
   Wallet,
@@ -182,6 +185,8 @@ export default function HackerHouseDetailPage({
   const { kernelAddress } = useKernelWallet()
   const escrowAddress = (hackerHouse?.escrow_address ?? null) as `0x${string}` | null
   const { data: builderSpot } = useBuilderSpot({ escrowAddress, builderAddress: kernelAddress })
+  const hasGmxYield = hackerHouse?.yield_mode === "gmx"
+  const { data: yieldData } = usePendingYield(escrowAddress, hasGmxYield)
   const apply = useApplyToHackerHouse(id)
   const updateHackerHouse = useUpdateHackerHouse(id)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -598,6 +603,70 @@ export default function HackerHouseDetailPage({
               )}
             </div>
           </section>
+
+          {/* ── Live Yield ── */}
+          {hasGmxYield && escrowAddress && (
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
+                  <TrendingUp className="size-4 text-strategist" />
+                  Live Yield
+                </h2>
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-sm border border-strategist/50 text-strategist bg-strategist/10 font-mono">
+                  <span className="size-1.5 rounded-full bg-strategist animate-pulse inline-block" />
+                  GMX
+                </span>
+              </div>
+              <div className="bg-card border border-strategist/30 rounded-xl p-5 flex flex-col gap-4">
+                {yieldData ? (
+                  <>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-muted-foreground text-xs font-mono mb-1">Total accrued</p>
+                        <p className="font-display font-bold text-3xl text-foreground">
+                          {Number(formatUnits(yieldData.pendingYield, 6)) > 0
+                            ? `${Number(formatUnits(yieldData.pendingYield, 6)).toFixed(4)} USDC`
+                            : "Accruing…"}
+                        </p>
+                      </div>
+                      {Number(formatUnits(yieldData.pendingYield, 6)) > 0 && (
+                        <p className="text-muted-foreground text-xs font-mono pb-1">updating live</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 pt-3 border-t border-border">
+                      {yieldData.yieldGoesToBuilders ? (
+                        <>
+                          <div className="size-8 bg-builder-archetype/20 rounded-full flex items-center justify-center shrink-0">
+                            <Users className="size-4 text-builder-archetype" />
+                          </div>
+                          <div>
+                            <p className="text-foreground text-sm font-medium">Goes to builders</p>
+                            {Number(formatUnits(yieldData.pendingYield, 6)) > 0 && yieldData.filledCount > 0n && (
+                              <p className="text-muted-foreground text-xs font-mono">
+                                ~{Number(formatUnits(yieldData.perBuilderYield, 6)).toFixed(4)} USDC per builder
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="size-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
+                            <Wallet className="size-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-foreground text-sm font-medium">Goes to host</p>
+                            <p className="text-muted-foreground text-xs font-mono">Distributed at release</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-20 animate-pulse" />
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ── Self Check-in ── */}
           {(() => {

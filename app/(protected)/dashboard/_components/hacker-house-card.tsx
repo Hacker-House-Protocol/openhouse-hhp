@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ARCHETYPES } from "@/lib/onboarding"
 import type { HackerHouse } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, TrendingUp } from "lucide-react"
 import { parseLocalDate } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 
@@ -159,6 +159,14 @@ export function HackerHouseCard({ hackerHouse, currentUserId }: HackerHouseCardP
         )}>
           {hackerHouse.modality === "free" ? "Sponsored" : hackerHouse.modality === "staking" ? "Staking" : "Co-payment"}
         </span>
+
+        {/* GMX Yield badge — bottom right */}
+        {hackerHouse.yield_mode === "gmx" && (
+          <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-sm font-mono border border-strategist/60 bg-black/70 text-strategist backdrop-blur-sm">
+            <TrendingUp className="size-2.5" />
+            GMX Yield
+          </span>
+        )}
 
         {/* Image count badge — top left (only when multiple) */}
         {images.length > 1 && (
