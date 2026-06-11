@@ -100,7 +100,7 @@ function HackSpaceInlineCard({ space }: { space: HackSpace }) {
   return (
     <Link
       href={`/dashboard/hack-spaces/${space.id}`}
-      className="min-w-[75vw] sm:min-w-75 lg:min-w-0 bg-card border border-border rounded-lg overflow-hidden hover:border-primary transition-colors shrink-0 flex flex-col"
+      className="min-w-[75vw] sm:min-w-75 lg:min-w-0 bg-card border border-border rounded-lg overflow-hidden hover:border-primary transition-colors shrink-0 flex flex-col w-67.5"
     >
       <div className="relative h-32 w-full shrink-0">
         {space.image_url ? (

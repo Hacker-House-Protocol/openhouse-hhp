@@ -30,6 +30,7 @@ import { PageContainer } from "../_components/page-container"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { ARCHETYPES } from "@/lib/onboarding"
 import type { UserProfile, SuggestedBuilder, Community, FriendshipWithUser } from "@/lib/types"
@@ -44,7 +45,7 @@ function PendingRequestCard({ friendship }: { friendship: FriendshipWithUser }) 
   const displayName = other_user.handle ? `@${other_user.handle}` : "Anonymous"
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 flex flex-col items-center text-center relative">
+    <div className="h-full bg-card border border-border rounded-lg p-4 flex flex-col items-center text-center relative">
       {direction === "sent" && (
         <div className="group absolute top-2 right-2">
           <button
@@ -110,7 +111,7 @@ function NetworkBuilderCard({
   return (
     <Link
       href={builder.handle ? `/dashboard/builders/${builder.handle}` : "#"}
-      className="bg-card border border-border rounded-lg p-4 hover:border-primary transition-colors"
+      className="block w-full h-full bg-card border border-border rounded-lg p-4 hover:border-primary transition-colors"
     >
       <div className="flex flex-col items-center text-center">
         <div
@@ -647,11 +648,31 @@ function CardSkeleton({ variant = "builder" }: { variant?: "builder" | "communit
     )
   }
   return (
-    <div className="min-w-50 lg:min-w-0 bg-card border border-border rounded-lg p-4 shrink-0 flex flex-col items-center gap-3">
+    <div className="bg-card border border-border rounded-lg p-4 flex flex-col items-center gap-3">
       <Skeleton className="w-12 h-12 rounded-full" />
       <Skeleton className="h-4 w-20" />
       <Skeleton className="h-5 w-14 rounded" />
       <Skeleton className="h-9 w-full rounded-full" />
+    </div>
+  )
+}
+
+/* ── Horizontal card rail: scroll on mobile, 4-col grid on lg ── */
+function CardRail({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollArea>
+      <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
+        {children}
+      </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
+  )
+}
+
+function RailItem({ wide, children }: { wide?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={cn("shrink-0 lg:min-w-0", wide ? "min-w-67.5" : "min-w-50")}>
+      {children}
     </div>
   )
 }
@@ -831,30 +852,31 @@ export default function BuildersPage() {
                   )}
                 </div>
                 {friendsLoading ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[1, 2].map((i) => <CardSkeleton key={i} />)}
-                  </div>
+                  <CardRail>
+                    {[1, 2].map((i) => <RailItem key={i}><CardSkeleton /></RailItem>)}
+                  </CardRail>
                 ) : acceptedFriends && acceptedFriends.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <CardRail>
                     {acceptedFriends.slice(0, 4).map((f) => (
-                      <NetworkBuilderCard
-                        key={f.id}
-                        builder={{
-                          id: f.other_user.id,
-                          handle: f.other_user.handle,
-                          archetype: f.other_user.archetype,
-                          avatar_url: f.other_user.avatar_url,
-                          is_verified: false,
-                          skills: null,
-                          languages: null,
-                          bio: null,
-                          city: null,
-                          onchain_since: null,
-                        } as UserProfile}
-                        currentUserId={profile?.id}
-                      />
+                      <RailItem key={f.id}>
+                        <NetworkBuilderCard
+                          builder={{
+                            id: f.other_user.id,
+                            handle: f.other_user.handle,
+                            archetype: f.other_user.archetype,
+                            avatar_url: f.other_user.avatar_url,
+                            is_verified: false,
+                            skills: null,
+                            languages: null,
+                            bio: null,
+                            city: null,
+                            onchain_since: null,
+                          } as UserProfile}
+                          currentUserId={profile?.id}
+                        />
+                      </RailItem>
                     ))}
-                  </div>
+                  </CardRail>
                 ) : (
                   <EmptyPlaceholder type="network" />
                 )}
@@ -869,20 +891,21 @@ export default function BuildersPage() {
                   </Link>
                 </div>
                 {suggestedLoading ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
-                  </div>
+                  <CardRail>
+                    {[1, 2, 3].map((i) => <RailItem key={i}><CardSkeleton /></RailItem>)}
+                  </CardRail>
                 ) : visibleSuggestedBuilders.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <CardRail>
                     {visibleSuggestedBuilders.slice(0, 4).map((builder) => (
-                      <NetworkBuilderCard
-                        key={builder.id}
-                        builder={builder}
-                        currentUserId={profile?.id}
-                        badge={builder.match_reasons?.[0]}
-                      />
+                      <RailItem key={builder.id}>
+                        <NetworkBuilderCard
+                          builder={builder}
+                          currentUserId={profile?.id}
+                          badge={builder.match_reasons?.[0]}
+                        />
+                      </RailItem>
                     ))}
-                  </div>
+                  </CardRail>
                 ) : (
                   <div className="bg-card border border-dashed border-border rounded-lg p-12 flex flex-col items-center gap-3 text-center">
                     <p className="text-muted-foreground text-sm">No suggested builders yet. Complete your profile to get better matches!</p>
@@ -895,15 +918,17 @@ export default function BuildersPage() {
                 <section>
                   <h2 className="font-display font-bold text-lg text-foreground mb-4">Pending requests</h2>
                   {pendingLoading ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[1, 2].map((i) => <CardSkeleton key={i} />)}
-                    </div>
+                    <CardRail>
+                      {[1, 2].map((i) => <RailItem key={i}><CardSkeleton /></RailItem>)}
+                    </CardRail>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <CardRail>
                       {(pendingFriendships ?? []).map((f) => (
-                        <PendingRequestCard key={f.id} friendship={f} />
+                        <RailItem key={f.id}>
+                          <PendingRequestCard friendship={f} />
+                        </RailItem>
                       ))}
-                    </div>
+                    </CardRail>
                   )}
                 </section>
               )}
@@ -988,15 +1013,17 @@ export default function BuildersPage() {
                   )}
                 </div>
                 {communityLoading ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[1, 2].map((i) => <CardSkeleton key={i} variant="community" />)}
-                  </div>
+                  <CardRail>
+                    {[1, 2].map((i) => <RailItem key={i} wide><CardSkeleton variant="community" /></RailItem>)}
+                  </CardRail>
                 ) : myCommunities.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <CardRail>
                     {myCommunities.slice(0, 4).map((c) => (
-                      <CommunityCard key={c.id} community={c} />
+                      <RailItem key={c.id} wide>
+                        <CommunityCard community={c} />
+                      </RailItem>
                     ))}
-                  </div>
+                  </CardRail>
                 ) : (
                   <EmptyPlaceholder type="community" />
                 )}
@@ -1015,15 +1042,17 @@ export default function BuildersPage() {
                     </Link>
                   </div>
                   {communityLoading ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[1, 2].map((i) => <CardSkeleton key={i} variant="community" />)}
-                    </div>
+                    <CardRail>
+                      {[1, 2].map((i) => <RailItem key={i} wide><CardSkeleton variant="community" /></RailItem>)}
+                    </CardRail>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <CardRail>
                       {featuredCommunities.slice(0, 4).map((c) => (
-                        <CommunityCard key={c.id} community={c} />
+                        <RailItem key={c.id} wide>
+                          <CommunityCard community={c} />
+                        </RailItem>
                       ))}
-                    </div>
+                    </CardRail>
                   )}
                 </section>
               )}
@@ -1037,15 +1066,17 @@ export default function BuildersPage() {
                   </Link>
                 </div>
                 {communityLoading ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[1, 2, 3].map((i) => <CardSkeleton key={i} variant="community" />)}
-                  </div>
+                  <CardRail>
+                    {[1, 2, 3].map((i) => <RailItem key={i} wide><CardSkeleton variant="community" /></RailItem>)}
+                  </CardRail>
                 ) : otherCommunities.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <CardRail>
                     {otherCommunities.slice(0, 4).map((c) => (
-                      <CommunityCard key={c.id} community={c} />
+                      <RailItem key={c.id} wide>
+                        <CommunityCard community={c} />
+                      </RailItem>
                     ))}
-                  </div>
+                  </CardRail>
                 ) : (
                   <div className="bg-card border border-dashed border-border rounded-lg p-12 flex flex-col items-center gap-3 text-center">
                     <p className="text-muted-foreground text-sm">No communities to explore yet. Be the first to create one!</p>
