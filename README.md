@@ -219,7 +219,7 @@ Every builder on the protocol has a primary archetype. It shapes how they appear
 
 ---
 
-> *"We were 4 builders heading to ETHGlobal.*
+> *"We were 4 builders heading to the same event.*
 > *Each paid their share on-chain.*
 > *If we didn't reach 4, everything came back automatically.*
 > *We reached 4. The Booking NFT appeared in our wallets that night."*
