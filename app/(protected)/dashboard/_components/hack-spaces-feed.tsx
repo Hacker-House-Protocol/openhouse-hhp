@@ -6,7 +6,6 @@ import { useFilteredHackSpaces } from "@/services/api/hack-spaces"
 import { HackSpaceCard } from "./hack-space-card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const PREVIEW_LIMIT = 4
 
@@ -56,8 +55,8 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
 
       {/* Content */}
       {isLoading ? (
-        <ScrollArea>
-          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
+        <div className="overflow-x-auto lg:overflow-visible">
+          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:w-full">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="min-w-67.5 lg:min-w-0 shrink-0">
                 <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-4 h-[220px]">
@@ -69,8 +68,7 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
               </div>
             ))}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
       ) : hackSpaces.length === 0 ? (
         <div className="bg-card border border-dashed border-border rounded-lg p-12 flex flex-col items-center gap-4 text-center">
           <div className="flex flex-col gap-1">
@@ -90,16 +88,15 @@ export function HackSpacesFeed({ currentUserId }: HackSpacesFeedProps) {
           </Link>
         </div>
       ) : (
-        <ScrollArea>
-          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:overflow-visible lg:w-auto">
+        <div className="overflow-x-auto lg:overflow-visible">
+          <div className="flex gap-4 pb-3 w-max items-stretch lg:grid lg:grid-cols-4 lg:w-full">
             {preview.map((hs) => (
               <div key={hs.id} className="min-w-67.5 lg:min-w-0 shrink-0">
                 <HackSpaceCard hackSpace={hs} currentUserId={currentUserId} />
               </div>
             ))}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
       )}
     </div>
   )
