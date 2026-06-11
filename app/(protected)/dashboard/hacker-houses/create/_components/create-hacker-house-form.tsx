@@ -15,6 +15,9 @@ import {
   EVENT_TIMINGS,
   HOUSE_MODALITIES,
   CONTRACT_TYPES,
+  HOUSE_TYPES,
+  YIELD_MODES,
+  YIELD_DESTS,
 } from "@/lib/schemas/hacker-house"
 import { useUploadHackerHouseImage } from "@/services/api/hacker-houses"
 import { useCommunities } from "@/services/api/communities"
@@ -79,7 +82,7 @@ const AMENITY_OPTIONS: { key: keyof CreateHackerHouseInput; label: string; descr
   { key: "includes_internet", label: "Internet", description: "High-speed WiFi included" },
 ]
 
-const STEPS = ["House", "Amenities", "Community", "Access", "Check-in"] as const
+const STEPS = ["House", "Amenities", "Community", "Access", "Payment", "Check-in"] as const
 type Step = (typeof STEPS)[number]
 
 const STEP_FIELDS: Record<Step, (keyof CreateHackerHouseInput)[]> = {
@@ -87,6 +90,7 @@ const STEP_FIELDS: Record<Step, (keyof CreateHackerHouseInput)[]> = {
   Amenities: ["start_date", "end_date", "capacity"],
   Community: ["profile_sought", "language"],
   Access: ["application_type", "application_deadline"],
+  Payment: ["deposit_amount_usdc", "withdraw_date", "house_type"],
   "Check-in": [],
 }
 
@@ -114,11 +118,28 @@ const FIELD_TO_STEP: Partial<Record<keyof CreateHackerHouseInput, Step>> = {
   event_timing: "Community",
   application_type: "Access",
   application_deadline: "Access",
+  deposit_amount_usdc: "Payment",
+  withdraw_date: "Payment",
+  house_type: "Payment",
+  yield_mode: "Payment",
+  yield_dest: "Payment",
+  host_safe: "Payment",
   checkin_wifi_password: "Check-in",
   checkin_room_info: "Check-in",
   checkin_lockbox: "Check-in",
   checkin_notes: "Check-in",
 }
+
+const HOUSE_TYPE_OPTIONS: { value: (typeof HOUSE_TYPES)[number]; title: string; description: string }[] = [
+  { value: "co_payment", title: "Co-payment", description: "Funds go directly to host to cover rent" },
+  { value: "staking", title: "Staking", description: "Funds stay in escrow and generate yield (GMX)" },
+  { value: "hybrid", title: "Hybrid", description: "Part covers rent, part stays staked with yield" },
+]
+
+const YIELD_DEST_OPTIONS: { value: (typeof YIELD_DESTS)[number]; title: string; description: string }[] = [
+  { value: "host", title: "To host", description: "All yield goes to the host together with the principal" },
+  { value: "builders", title: "To builders", description: "Yield distributed pro-rata to each builder" },
+]
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
@@ -299,12 +320,20 @@ export function CreateHackerHouseForm({
       event_start_date: "",
       event_end_date: "",
       event_timing: [],
+      // Web3 escrow defaults
+      host_safe: "",
+      withdraw_date: "",
+      house_type: "co_payment",
+      yield_mode: "none",
+      yield_dest: "host",
       ...defaultValues,
     },
   })
 
   const hasEvent = useWatch({ control, name: "has_event" })
   const watchedModality = useWatch({ control, name: "modality" })
+  const watchedHouseType = useWatch({ control, name: "house_type" })
+  const watchedYieldMode = useWatch({ control, name: "yield_mode" })
 
   useEffect(() => {
     if (watchedModality === "free") {
@@ -422,7 +451,14 @@ export function CreateHackerHouseForm({
   async function goNext() {
     setServerError(null)
     const valid = await trigger(STEP_FIELDS[step])
-    if (valid) setStep(STEPS[stepIndex + 1])
+    if (!valid) return
+    const next = STEPS[stepIndex + 1]
+    // Skip Payment step for free/sponsored houses
+    if (next === "Payment" && !needsPaymentStep) {
+      setStep(STEPS[stepIndex + 2])
+    } else {
+      setStep(next)
+    }
   }
 
   async function onSubmit(values: CreateHackerHouseInput) {
@@ -453,40 +489,48 @@ export function CreateHackerHouseForm({
   }
 
 
-  const showStep = (s: Step) => editMode || step === s
+  // Payment step is skipped entirely for free/sponsored houses
+  const needsPaymentStep = watchedModality !== "free"
+  const visibleSteps = (needsPaymentStep ? STEPS : STEPS.filter(s => s !== "Payment")) as Step[]
+  const visibleStepIndex = visibleSteps.indexOf(step)
+
+  const showStep = (s: Step) => {
+    if (s === "Payment") return needsPaymentStep && (editMode || step === "Payment")
+    return editMode || step === s
+  }
 
   return (
     <div className="w-full flex flex-col gap-8">
       {/* Step indicator — hidden in edit mode */}
       {!editMode && (
         <div className="flex items-center w-full">
-          {STEPS.map((s, i) => (
+          {visibleSteps.map((s, i) => (
             <Fragment key={s}>
               <div className="flex items-center gap-2 shrink-0">
                 <div
                   className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-bold border transition-all",
-                    i < stepIndex
+                    i < visibleStepIndex
                       ? "bg-primary border-primary text-primary-foreground"
-                      : i === stepIndex
+                      : i === visibleStepIndex
                         ? "border-primary text-primary"
                         : "border-border text-muted-foreground",
                   )}
                 >
-                  {i < stepIndex ? "✓" : i + 1}
+                  {i < visibleStepIndex ? "✓" : i + 1}
                 </div>
                 <span
                   className={cn(
                     "text-xs font-mono hidden sm:block",
-                    i === stepIndex ? "text-foreground font-medium" : "text-muted-foreground",
+                    i === visibleStepIndex ? "text-foreground font-medium" : "text-muted-foreground",
                   )}
                 >
                   {s}
                 </span>
               </div>
-              {i < STEPS.length - 1 && (
+              {i < visibleSteps.length - 1 && (
                 <div
-                  className={cn("h-px flex-1 mx-2", i < stepIndex ? "bg-primary" : "bg-border")}
+                  className={cn("h-px flex-1 mx-2", i < visibleStepIndex ? "bg-primary" : "bg-border")}
                 />
               )}
             </Fragment>
@@ -1353,7 +1397,181 @@ export function CreateHackerHouseForm({
           </SectionCard>
         )}
 
-        {/* ── STEP 5: CHECK-IN ── */}
+        {/* ── STEP 5: PAYMENT ── */}
+        {showStep("Payment") && (
+          <SectionCard>
+            <div>
+              <h2 className="font-display font-bold text-foreground text-xl">Payment & escrow</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                Configure the on-chain escrow for this house.
+              </p>
+            </div>
+
+            <Controller
+              name="deposit_amount_usdc"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Deposit per builder (USDC)</FieldLabel>
+                  <FieldDescription>Each builder deposits this amount to claim their spot.</FieldDescription>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">$</span>
+                    <Input
+                      id={field.name}
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="500"
+                      className="pl-7"
+                      value={field.value ?? ""}
+                      onChange={(e) => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+                    />
+                  </div>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="withdraw_date"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel>Withdraw date</FieldLabel>
+                  <FieldDescription>Earliest date you can collect funds from the escrow.</FieldDescription>
+                  <DatePicker
+                    value={field.value}
+                    onChange={(v) => field.onChange(v ?? "")}
+                    placeholder="Pick a date"
+                    disableBefore={new Date()}
+                    className="w-full"
+                  />
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            <Controller
+              name="house_type"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel>Escrow type</FieldLabel>
+                  <RadioGroup
+                    value={field.value ?? "co_payment"}
+                    onValueChange={field.onChange}
+                    className="gap-2"
+                  >
+                    {HOUSE_TYPE_OPTIONS.map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={cn(
+                          "w-full flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer",
+                          field.value === opt.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/40",
+                        )}
+                      >
+                        <RadioGroupItem value={opt.value} />
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground">{opt.title}</span>
+                          <span className="text-xs text-muted-foreground font-mono">{opt.description}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </RadioGroup>
+                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                </Field>
+              )}
+            />
+
+            {(watchedHouseType === "staking" || watchedHouseType === "hybrid") && (
+              <>
+                <Controller
+                  name="yield_mode"
+                  control={control}
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel>Yield protocol</FieldLabel>
+                      <FieldDescription>
+                        {watchedHouseType === "staking"
+                          ? "Staking houses require yield — funds generate returns while locked."
+                          : "Choose how the staked portion generates yield."}
+                      </FieldDescription>
+                      <div className="flex gap-2">
+                        {(YIELD_MODES as readonly string[]).map((mode) => (
+                          <TogglePill
+                            key={mode}
+                            selected={field.value === mode}
+                            onClick={() => field.onChange(mode)}
+                          >
+                            {mode === "none" ? "None" : "GMX"}
+                          </TogglePill>
+                        ))}
+                      </div>
+                    </Field>
+                  )}
+                />
+
+                {watchedYieldMode === "gmx" && (
+                  <Controller
+                    name="yield_dest"
+                    control={control}
+                    render={({ field }) => (
+                      <Field>
+                        <FieldLabel>Yield destination</FieldLabel>
+                        <RadioGroup
+                          value={field.value ?? "host"}
+                          onValueChange={field.onChange}
+                          className="gap-2"
+                        >
+                          {YIELD_DEST_OPTIONS.map((opt) => (
+                            <label
+                              key={opt.value}
+                              className={cn(
+                                "w-full flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer",
+                                field.value === opt.value
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-primary/40",
+                              )}
+                            >
+                              <RadioGroupItem value={opt.value} />
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-sm font-medium text-foreground">{opt.title}</span>
+                                <span className="text-xs text-muted-foreground font-mono">{opt.description}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </RadioGroup>
+                      </Field>
+                    )}
+                  />
+                )}
+              </>
+            )}
+
+            <Controller
+              name="host_safe"
+              control={control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name} optional>Host Safe address</FieldLabel>
+                  <FieldDescription>
+                    The wallet that receives funds on release. Leave empty to use your own wallet.
+                  </FieldDescription>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="0x… (optional)"
+                    className="font-mono text-sm"
+                  />
+                </Field>
+              )}
+            />
+          </SectionCard>
+        )}
+
+        {/* ── STEP 6: CHECK-IN ── */}
         {showStep("Check-in") && (
           <SectionCard>
             <div>
@@ -1440,7 +1658,16 @@ export function CreateHackerHouseForm({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => (stepIndex > 0 ? setStep(STEPS[stepIndex - 1]) : router.back())}
+              onClick={() => {
+                if (stepIndex === 0) { router.back(); return }
+                const prev = STEPS[stepIndex - 1]
+                // Skip Payment step going back if modality is free
+                if (prev === "Payment" && !needsPaymentStep) {
+                  setStep(STEPS[stepIndex - 2])
+                } else {
+                  setStep(prev)
+                }
+              }}
               className="font-mono text-sm"
             >
               ← {stepIndex === 0 ? "Cancel" : "Back"}
