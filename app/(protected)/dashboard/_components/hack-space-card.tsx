@@ -46,7 +46,7 @@ export function HackSpaceCard({
   void currentUserId
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col hover:border-primary/30 transition-all duration-200 h-full w-full">
+    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col hover:border-primary/30 transition-all duration-200 h-full w-[320px]">
       {/* Cover image */}
       <div className="relative h-28 w-full overflow-hidden">
         {hackSpace.image_url ? (
@@ -101,7 +101,7 @@ export function HackSpaceCard({
         </div>
 
         {/* Description */}
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 break-words">
+        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 wrap-break-word">
           {hackSpace.description}
         </p>
 
