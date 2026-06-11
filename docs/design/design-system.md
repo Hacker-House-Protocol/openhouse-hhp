@@ -211,8 +211,8 @@ border-radius: 9999px
 - Todos los tokens de color en `globals.css` — superficies, brand, arquetipos, sidebar
 - Tipografía: Inter (body), Space Grotesk (display), JetBrains Mono (mono)
 - Border radius tokens definidos y en uso
-- Clase `.dark` fija en `<html>`, sin modo light
-- Utilidades custom: `animate-float`, `no-scrollbar`
+- Clase `.dark` fija en `<html>` (en `app/layout.tsx`), sin modo light
+- Utilidades custom: `animate-marquee` (28s), `animate-float` (3.5s), `no-scrollbar`
 
 **Pendiente:**
 - Categorías de color para pills de skills — "a determinar en implementación"

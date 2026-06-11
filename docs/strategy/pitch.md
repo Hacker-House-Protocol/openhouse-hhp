@@ -1,7 +1,7 @@
-# Pitch v2 — Hacker House Protocol
+# Pitch — Hacker House Protocol
 # Arbitrum Open House London Buildathon
 
-**Versión**: 2.2 · Mayo 2026
+**Versión**: 2.3 · Junio 2026
 **Formato**: Slide por slide — listo para trasladar a presentación
 
 ---
@@ -23,7 +23,7 @@
 - Los builders viajan a los mismos eventos pero no tienen dónde encontrarse de forma estructurada
 - Siempre hay un organizador responsable — pero el proceso es manual, frágil y sin garantías: persigue pagos, recibe fondos de fe, y no puede ofrecer reembolso automático si algo falla
 - No hay infraestructura crypto-nativa para los tres modelos reales: **copayment** entre builders, **sponsor** de una organización, o **staking** como compromiso
-- Las comunidades se disuelven después de cada evento — sin persistencia, sin identidad acumulada
+- El contacto sobrevive en redes — pero la reputación no. No hay registro verificable de con quién construiste ni de lo que shippeaste. Cada evento arranca desde cero
 
 **El protocolo no reemplaza al organizador — le da la infraestructura para que su responsabilidad sea trustless, automática y verificable on-chain.**
 
@@ -41,6 +41,8 @@
 - *"Esta house requiere score ≥ 60 en Talent Protocol"* — solo builders con reputación verificada
 - *"Esta house requiere un POAP de ETHGlobal"* — solo quienes ya estuvieron en un evento
 - *"Esta house requiere 5+ POAPs"* — builders con trayectoria demostrable en el ecosistema
+
+**La confianza va en ambos sentidos.** La house verifica al builder (gating on-chain), y el builder puede confiar en la house: las creadas por una comunidad o empresa pasan por una verificación manual que les otorga un sello de **✓ Verificado**. Es la confianza que antes ponía la marca del evento — ahora la pone el protocolo.
 
 ---
 
@@ -61,6 +63,8 @@ House no completa  →  refund automático a cada builder
 
 La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicación y detalles del espacio. Las llaves de tu casa viven on-chain.
 
+*El flujo on-chain (pool → release/refund → NFT de booking) corre sobre el contrato en **Arbitrum testnet** para el demo; la UI de pago de la app ya está lista y la integración app ↔ contrato está en curso.*
+
 ---
 
 ## SLIDE 5 — Smart Contract (El diferenciador Arbitrum)
@@ -75,7 +79,7 @@ La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicac
 | `refund()` | Contrato (auto) | Deadline sin completar → reembolso automático |
 | `mintBookingNFT()` | Contrato (auto) | Pool completo → NFT de confirmación a cada builder |
 
-**Por qué Arbitrum:** Gas fees bajos (crítico para co-living), EVM maduro, Privy ya lo soporta.
+**Por qué Arbitrum:** Gas fees bajos (crítico para co-living), EVM maduro, Privy ya lo soporta. Contrato desplegado en **Arbitrum Sepolia (testnet)** para el demo.
 
 ---
 
@@ -96,7 +100,7 @@ La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicac
 
 | Fuente | Detalle |
 |---|---|
-| **Comisión del host** | 1% sobre el total coordinado por la plataforma |
+| **Comisión del host** | 0.5% sobre el total coordinado por la plataforma |
 | **Yield del staking** | Fondos lockeados generan yield mientras esperan el release |
 | **Houses patrocinadas** | DAOs y empresas financian houses con su marca — Base House, Arbitrum House |
 
@@ -107,14 +111,16 @@ La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicac
 **Headline:** Ya construido. Esto es lo que falta.
 
 ✅ Auth + Cypher Identity — perfil on-chain con Talent Protocol, POAPs y wallet
-✅ Hacker Houses — crear, listar, aplicar, gestionar aplicaciones
-✅ Builder Discovery + Matching algorítmico por credenciales on-chain
-✅ Notificaciones + Mapa interactivo de houses por ciudad y evento
+✅ Hacker Houses — crear (3 modalidades), listar, aplicar, unirse, gestionar aplicaciones + UI de pago/staking
+✅ Comunidades — CRUD completo, miembros, mini-eventos con RSVP, verificación y sponsorship
+✅ Events — catálogo, solicitudes de evento y panel de revisión admin
+✅ Builder Discovery + Matching algorítmico + Mapa interactivo (4 tipos de marcador)
+✅ Notificaciones + panel de administración
 
+🔨 Smart contract Arbitrum — `HackerHouseEscrow` desplegado en **testnet** (deposit / release / refund / NFT de booking)
+🔨 Integración contrato ↔ UI de pago de Hacker Houses (la UI ya está lista)
+🔨 Yield del staking vía GMX — frontend ya cableado, leyendo del contrato
 🔨 Gating on-chain — requisitos de acceso por score, cantidad de POAPs o POAPs específicos
-🔨 Smart contract Arbitrum — pool de fondos + escrow + NFT de booking
-🔨 Integración contrato ↔ UI de HackerHouses
-🔨 Comunidades — invite link, badge de comunidad, filtros en Discovery
 
 ---
 
@@ -122,8 +128,8 @@ La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicac
 
 | Fase | Foco |
 |---|---|
-| **Buildathon (ahora)** | Pool on-chain + NFT booking + Comunidades como growth layer |
-| **Fase 2** | Yield del staking · Houses patrocinadas · Filtros on-chain |
+| **Buildathon (ahora)** | Pool on-chain + NFT booking + Yield vía GMX + Comunidades como growth layer |
+| **Fase 2** | Houses patrocinadas · Filtros on-chain |
 | **V2** | Chat interno · Gobernanza de comunidades · Experiencia gamificada |
 | **V3** | ZK Matching · ZK Identity · Cross-chain |
 
@@ -142,4 +148,4 @@ La confirmación de tu Hacker House es un **NFT en Arbitrum** con fechas, ubicac
 
 ---
 
-*Versión del pitch: 2.2 · Mayo 2026 · Para el plan de implementación ver `plan-buildathon.md`*
+*Versión del pitch: 2.3 · Junio 2026 · Para el plan de implementación ver `plan-buildathon.md`*

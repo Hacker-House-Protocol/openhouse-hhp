@@ -1,9 +1,9 @@
 # Plan de Implementación — Arbitrum Buildathon
 # Hacker House Protocol
 
-**Versión**: 1.0 · Mayo 2026
+**Versión**: 1.1 · Junio 2026 (sincronizado con el código)
 **Plazo**: 3 semanas
-**Para el pitch ejecutivo ver**: `pitch-v2.md`
+**Para el pitch ejecutivo ver**: `pitch.md` · **Para el deck de presentación ver**: `slides.md`
 
 ---
 
@@ -34,6 +34,11 @@ No se borra HackSpaces — ya está construido. La decisión es **congelar su de
 | `reject()` | Organizador rechaza un builder → devuelve deposit inmediatamente |
 | `mintBookingNFT()` | Auto: pool completo → mint NFT de confirmación para cada builder |
 
+### Yield vía GMX (parte del scope buildathon)
+Los fondos lockeados generan yield mientras esperan el release. El frontend ya está cableado y lee del contrato vía `hooks/use-pending-yield.ts`. Funciones view requeridas: `pendingYield()`, `yieldDest()` (0=HOST, 1=BUILDERS), `nextBookingId()`. Ver `docs/web3/gmx-requirements.md` para el detalle de integración. Estado: contrato en testnet, frontend listo.
+
+> **Estado on-chain (junio 2026):** el contrato se demuestra en **Arbitrum Sepolia (testnet)**. La UI de pago/staking de la app está construida (`/dashboard/hacker-houses/[id]/payment`) pero todavía hace un upsert en DB — el cableado app ↔ contrato (wagmi/viem) es lo que se está cerrando. Las columnas escrow/yield ya existen en la tabla `hacker_houses`.
+
 ### Por qué Arbitrum
 - Gas fees bajos — crítico para deposits de co-living
 - EVM-compatible — Solidity directo, sin cambios de arquitectura
@@ -44,19 +49,24 @@ No se borra HackSpaces — ya está construido. La decisión es **congelar su de
 
 ## Arquitectura de Comunidades
 
-**Decisión:** Extender la tabla `organizations` ya planificada en Supabase con `type: 'organization' | 'community'`. Evita duplicar infraestructura.
+> **Nota (junio 2026):** el plan original acotaba comunidades a "invite link + badge + filtro" sobre una tabla `organizations`. La implementación real terminó siendo **más amplia** y usa tablas dedicadas (`communities`, no `organizations`). Esta sección refleja lo construido.
 
-### Schema
+### Schema (real)
 | Tabla | Campos clave | Propósito |
 |---|---|---|
-| `organizations` | id, slug, name, type, logo_url, creator_id, invite_code, is_verified | Comunidad informal u organización verificada |
-| `org_members` | org_id, user_id, role ('admin'\|'member'), joined_at | Un builder puede pertenecer a múltiples comunidades |
+| `communities` | id, slug, name, category, logo_url, creator_id, invite_code, is_verified, verification_requested, is_featured, featured_order, display_order | Comunidad u organización |
+| `community_members` | community_id, user_id, role, joined_at | Un builder puede pertenecer a varias comunidades |
+| `mini_events` | id, community_id, name, location, fechas | Mini-eventos organizados por una comunidad |
+| `mini_event_attendees` | mini_event_id, user_id | RSVP a mini-eventos |
 
-### Scope MVP de comunidades (solo esto)
-- Invite link: `hackerhouse.app/join/[slug]` — auto-asigna al builder al registrarse
-- Badge de comunidad en perfil público y BuilderCard
-- Filtro por comunidad en Builder Discovery
-- **Sin** página pública de comunidad, gobernanza ni comunidades privadas (V2)
+### Scope construido (más amplio que el MVP planeado)
+- Invite link: `/join/[slug]` — une al builder a la comunidad
+- CRUD completo: explorar (`/dashboard/community/explore`), crear, página de detalle (`/dashboard/community/[id]`), gestión de miembros
+- Mini-eventos con RSVP, visibles en el mapa interactivo
+- Badge de comunidad en perfil y cards + filtro en Builder Discovery
+- **Verificación manual** (`is_verified`): la comunidad la solicita (`verification_requested`) y un admin la concede desde `/dashboard/admin` → badge ✓ Verificado
+- Featured/orden de comunidades controlado desde el panel admin
+- **Sigue en V2:** gobernanza on-chain y comunidades privadas
 
 ---
 
@@ -67,7 +77,7 @@ No se borra HackSpaces — ya está construido. La decisión es **congelar su de
 | Rol | Tareas |
 |---|---|
 | **PRODUCTO** | Definir flujo completo de invite link · Spec del badge y filtros · Coordinar con Web3 los parámetros que el contrato necesita exponer al backend |
-| **BACK** | Migración Supabase: organizations + org_members + RLS · API: POST /api/communities, GET /api/communities/[slug] · Lógica de invite_code |
+| **BACK** | Migración Supabase: communities + community_members + RLS · API: POST /api/communities, GET /api/communities/[slug] · Lógica de invite_code |
 | **FRONT** | Badge de comunidad en ProfileCard y perfil público · Página /join/[slug] · Filtro por comunidad en Builder Discovery |
 | **WEB3** | Definir interface del contrato · Setup Hardhat + Arbitrum Sepolia · Primer borrador de HackerHouseEscrow.sol |
 
@@ -99,7 +109,7 @@ Cualquier trabajo fuera de esta lista es scope creep y pone en riesgo el buildat
 |---|---|
 | HackSpaces (nuevas features) | CONGELADO — existe, no se toca |
 | Pagos on-chain completos (Fase 2) | CONGELADO — el contrato del buildathon es un subset acotado |
-| Página pública de comunidad | V2 — fuera de scope |
+| Página pública (sin auth / SEO) de comunidad | V2 — la página de detalle interna (`/dashboard/community/[id]`) sí se construyó |
 | Gobernanza de comunidades | V2 — fuera de scope |
 | Chat interno | V2 — fuera de scope |
 | Cypher Kittens NFT minteable | V2 — fuera de scope |
@@ -112,7 +122,7 @@ Cualquier trabajo fuera de esta lista es scope creep y pone en riesgo el buildat
 | Riesgo | Probabilidad | Mitigación |
 |---|---|---|
 | Contrato tarda más de lo esperado | MEDIA | Web3 dev arranca en semana 1. Si hay bloqueo, el pitch presenta el contrato en testnet como demo funcional |
-| Scope creep en comunidades | ALTA | El MVP es: invite link + badge + filtro. Todo lo demás es V2 |
+| Scope creep en comunidades | ALTA | El MVP planeado era invite link + badge + filtro; en la práctica se construyó más (CRUD, detalle, mini-eventos, verificación). Mantener gobernanza y comunidades privadas en V2 |
 | Buildathon requiere mainnet (no testnet) | BAJA | Verificar requisitos en semana 1. Deploy a mainnet toma < 1 hora si el contrato ya pasó tests |
 | Mobile no responsive a tiempo | MEDIA | Front prioriza mobile desde el inicio. Si hay tiempo límite, el demo se hace en desktop |
 
