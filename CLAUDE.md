@@ -8,7 +8,8 @@ All product and design documentation lives in `docs/`. **Always read the relevan
 
 | Doc | When to read |
 |---|---|
-| [`docs/strategy/pitch-v2.md`](./docs/strategy/pitch-v2.md) | Pitch — problem, solution, vision (Arbitrum Open House London Buildathon) |
+| [`docs/strategy/pitch.md`](./docs/strategy/pitch.md) | Pitch — problem, solution, vision (Arbitrum Open House London Buildathon) |
+| [`docs/strategy/slides.md`](./docs/strategy/slides.md) | Deck de presentación (slides + notas de orador) para el PPT |
 | [`docs/strategy/plan-buildathon.md`](./docs/strategy/plan-buildathon.md) | Buildathon implementation plan — scope, Arbitrum escrow contract, communities |
 | [`docs/product/overview.md`](./docs/product/overview.md) | Vision, archetypes, user types, stack, roadmap, business decisions |
 | [`docs/product/prd.md`](./docs/product/prd.md) | MVP scope, acceptance criteria, Definition of Done |

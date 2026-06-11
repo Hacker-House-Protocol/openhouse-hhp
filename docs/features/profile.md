@@ -19,8 +19,8 @@ El perfil tiene dos capas:
 
 | Modo | Descripción |
 |---|---|
-| **View** | Default. Muestra todos los datos. Botón de lápiz (`✏`) en la esquina superior derecha. |
-| **Edit** | Al presionar el lápiz. Los campos editables se convierten en inputs. Aparece botón "Save changes" (primary) y "Cancel" (ghost). Al guardar: `PATCH /api/profile` vía `usePatchProfile`. |
+| **View** | Default. Muestra todos los datos. Botón `✏ Edit` (variant outline, con `backdrop-blur`) en la esquina superior derecha del bloque de identidad. |
+| **Edit** | Al presionar `✏ Edit`. Toda la vista se reemplaza por `ProfileEditForm` dentro de una `Card` (no edición inline). Botones "Save changes →" (primary) y "Cancel" (ghost). Al guardar: `PATCH /api/profile` vía `usePatchProfile`. |
 
 ### Secciones
 
@@ -32,20 +32,21 @@ El bloque de identidad principal. Siempre visible en la parte superior.
 
 | Elemento | Editable | Notas |
 |---|---|---|
-| Cypher Kitten | ✅ | En modo edit, el GIF se vuelve clickeable y abre el selector de kittens (mismo grid que Step 2 del onboarding). |
-| Handle (`@handle`) | ❌ | Permanente — solo display con label "permanent" en modo edit. |
-| Archetype badge | ✅ | En modo edit, selector de 3 opciones (cards compactas). Usar variante de color del arquetipo: `variant="visionary"`, etc. |
-| Bio | ✅ | Textarea, máx 160 chars. Mostrar contador en modo edit. |
-| Wallet address | ❌ | Truncada: `0xd7ed...6C0e`. Solo si existe `wallet_address`. |
-| Verified badge | ❌ | Badge `✓ Verified` (variant primary) si `is_verified: true`. Tooltip: "On-chain credentials verified". |
+| Cypher Kitten | ✅ | En modo edit (`ProfileEditForm`), el selector de kittens (`KittenSelector`) aparece como sección propia, no clickeando el GIF directamente. En view se muestra el `avatar_url` (o un `?` si no hay). |
+| Handle (`@handle`) | ❌ | Permanente — solo display con label "permanent" (Badge outline) en modo edit. Si no hay handle se muestra `—`. |
+| Archetype badge | ✅ | En modo edit, selector de 3 opciones (cards compactas con borde del color del arquetipo). En view se muestra como `Badge` con `variant="{archetype}"` y el `label` del arquetipo. Cambiar de arquetipo en edit **resetea las skills**. |
+| Bio | ✅ | Textarea, máx 160 chars, contador `N / 160` en modo edit. En view, si está vacía: "No bio yet." en muted. |
+| Wallet address | ❌ | Truncada: `0xd7ed...6C0e` (prefijo `⬡`). Visible siempre que exista `wallet_address` (también en perfiles públicos — la API no lo oculta). |
+| Verified badge | ❌ | Etiqueta `✓ verified` (span con borde/color del arquetipo, **no** un `Badge` ni tooltip) junto al handle, solo si `is_verified: true`. |
 
 **UI del avatar:**
-El kitten siempre con borde circular del color del arquetipo:
+El kitten siempre con borde circular del color del arquetipo y glow en capas:
 ```
-border-2 rounded-full border-[var(--{archetype})]
-box-shadow: 0 0 16px color-mix(in oklch, var(--{archetype}) 30%, transparent)
+w-28 h-28 rounded-full object-cover border-2 border-[var(--{archetype})]
+box-shadow: 0 0 28px color-mix(in oklch, var(--{archetype}) 45%, transparent),
+            0 0 60px color-mix(in oklch, var(--{archetype}) 15%, transparent)
 ```
-Tamaño: `w-24 h-24` en mobile, `w-28 h-28` en desktop.
+Tamaño: `w-28 h-28` (igual en mobile y desktop). Fallback sin avatar: círculo con `?` al 40% de opacidad.
 
 ---
 
@@ -80,9 +81,9 @@ En modo view: mostrar como texto simple (`Buenos Aires · South America · GMT-3
 | GitHub | `github.com/` | ✅ |
 | Twitter / X | `x.com/` | ✅ |
 | Farcaster | `warpcast.com/` | ✅ |
-| Website | full URL | ✅ |
+| Website | full URL | ❌ (no editable hoy — el formulario de edición no incluye `website_url`) |
 
-En modo view: mostrar como links clickeables con ícono. En modo edit: mismos inputs con prefijo que `StepContext`.
+En modo view (`ProfileLinks`): mostrar como links clickeables (`<a target="_blank">`) con flecha `↗`; solo se muestran GitHub / Twitter / Farcaster (no Website). En modo edit: inputs con prefijo (`github.com/`, `x.com/`, `warpcast.com/`). La sección de Links solo se renderiza si existe al menos uno de los tres.
 
 ---
 
@@ -104,9 +105,11 @@ Card compacta mostrando el score numérico de Talent Protocol con glow sutil de 
 └─────────────────────────────────┘
 ```
 
-- Si `talent_protocol_score` es null y hay wallet: "No score found." con botón Sync.
-- Si no hay wallet y es owner: botón "Link Wallet" — abre modal de Privy via `useLinkAccount`. Al completar: `syncAndGetProfile()` + auto-import de Talent Protocol y POAPs.
+- Si hay `talent_protocol_score`: se muestra el número grande con `pts`.
+- Si `talent_protocol_score` es null y hay wallet: "No score found." (el botón Sync vive en el header de la sección, ver más abajo).
+- Si no hay wallet y es owner: botón "Link Wallet" — abre modal de Privy via `useLinkAccount`. Al completar: `syncAndGetProfile()` + auto-import de Talent Protocol y POAPs en paralelo (`Promise.allSettled`) + invalidación de `queryKeys.profile`.
 - Si no hay wallet y no es owner: "No wallet connected."
+- Pie de la card siempre: "Used for team matching".
 
 **Talent Tags — Verified Tags** (via Talent Protocol) — ✅ Implementado
 
@@ -120,9 +123,9 @@ Componente: `ProfileTags`. Muestra las skill tags importadas de Talent Protocol 
 └─────────────────────────────────┘
 ```
 
-- Solo se muestra si `talent_tags` tiene al menos un elemento.
-- Tags se importan junto con el score via `POST /api/integrations/talent-protocol`.
-- Se persisten en columna `talent_tags text[]` de la tabla `users`.
+- Solo se muestra si `talent_tags` tiene al menos un elemento (componente `ProfileTags`, retorna `null` si vacío).
+- Tags (y credentials) se importan junto con el score via `POST /api/integrations/talent-protocol` y se escriben en `users` (`talent_tags`, `talent_credentials`). Ambos están declarados en `UserProfile` (`lib/types.ts`).
+  > Nota: la presencia física de las columnas `talent_tags`/`talent_credentials` en el esquema de Supabase no está confirmada en la migración listada; el endpoint las escribe vía service-role y los tipos las declaran.
 
 **POAP Gallery — Achievement Wall**
 
@@ -137,23 +140,24 @@ Grid de cards, una por POAP. Cada card:
 └──────────┘
 ```
 
-- Grid: `grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3`
-- Si `poaps` está vacío y hay wallet: "No POAPs found" con botón re-import.
-- Si no hay wallet: "Connect a wallet to see your POAP collection".
+- Grid: `grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3`. POAPs ordenados por `event_date` desc.
+- Paginación: muestra hasta 10 inicialmente; un tile "+N / Show more" expande de 10 en 10 (estado local, sin refetch).
+- Si `poaps` está vacío y hay wallet: "No POAPs found on this wallet."
+- Si no hay wallet y es owner: "Link a wallet to see your POAP collection."
+- Si no hay wallet y no es owner: "No wallet connected."
 
-**Botón re-import**
+**Botón re-import (Sync)**
 
 ```
-"Update on-chain data"  [variant="outline", size="sm"]
+"Sync"  [variant="outline", size="sm"]   ← en el header de la sección On-chain
 ```
 
-- Solo visible si `profile.wallet_address` existe.
-- Texto del boton: "Sync" (no "Update on-chain data").
+- Visible siempre que `profile.wallet_address` exista (no está restringido al owner; también aparece en perfiles públicos con wallet).
 - Al presionar: dispara `useImportTalentScore` y `useImportPoaps` en paralelo via `Promise.allSettled`.
 - Estado loading: spinner + "Importing...".
-- Al completar: invalidar `queryKeys.profile`.
+- Al completar: cada hook invalida `queryKeys.profile`.
 - Errores: silent fail — no bloquea al usuario.
-- La importacion de Talent Protocol ahora trae score + tags + credentials (3 endpoints TP en paralelo).
+- La importación de Talent Protocol trae score + tags + credentials (`POST /api/integrations/talent-protocol` llama a 3 endpoints TP — `scores`, `profile`, `credentials` — en paralelo).
 
 ---
 
@@ -181,17 +185,17 @@ Mismo layout y secciones que el perfil propio, con estas diferencias:
 
 | Elemento | Diferencia |
 |---|---|
-| Botón de lápiz | No existe |
-| Handle label "permanent" | No se muestra |
-| Wallet address | Solo visible si `is_verified: true` |
-| Bio vacía | Mostrar "No bio yet" en muted |
-| Sección On-chain | Talent Score y POAPs visibles (read-only). Sin botón re-import. |
+| Botón `✏ Edit` | No existe — en su lugar se renderiza `ConnectButton` en la misma posición |
+| Handle label "permanent" | No se muestra (solo aparece dentro del edit form, que no existe aquí) |
+| Wallet address | Visible siempre que exista `wallet_address` — la API pública **no** lo oculta (solo elimina `email` y `privy_id`) |
+| Bio vacía | Mostrar "No bio yet." en muted |
+| Sección On-chain | Talent Score, Tags y POAPs visibles (read-only). El botón "Sync" **sí aparece** si el builder tiene `wallet_address`; el botón "Link Wallet" no (solo se muestra al owner) |
 | CTA | `ConnectButton` — ✅ implementado. Muestra estados: "Connect" / "Pending" / "Accept + Decline" / "Connected". |
-| Sección Activity | Sus Hack Spaces activos — sin "Create one" link |
+| Sección Activity | Sus Hack Spaces y Hacker Houses activos — sin links "+ Create" ni "Create one" |
 
-**Ruta dinámica:** `[username]` corresponde al `handle` del builder en la tabla `users`. Fetch: `GET /api/builders/[username]`.
+**Ruta dinámica:** `[username]` corresponde al `handle` del builder en la tabla `users`. Fetch: `GET /api/builders/[username]` vía `useBuilderProfile`.
 
-**404:** Si no existe el handle → redirect a `/dashboard/builders`.
+**No encontrado:** Si el handle no existe (404 de la API → `isError`), la página muestra un bloque inline "Builder not found." con el subtexto "@{username} doesn't exist on the protocol." y un botón "Browse builders →" hacia `/dashboard/builders`. **No** usa `notFound()` de Next.js ni redirect automático.
 
 ---
 
@@ -201,10 +205,10 @@ Componente `connect-button.tsx` que maneja el flujo completo de amistad desde el
 
 | Estado de amistad | UI renderizada |
 |---|---|
-| Sin relacion / `rejected` | Boton "Connect" (primary) — envia solicitud via `useSendFriendRequest` |
-| `pending` + `direction: "sent"` | Boton "Pending" (outline, disabled) |
-| `pending` + `direction: "received"` | Dos botones: "Accept" (primary) + "Decline" (outline) via `useUpdateFriendship` |
-| `accepted` | Boton "Connected" (outline) — al click muestra confirmacion "Remove" + "Cancel" |
+| Sin relacion / `rejected` | Boton "Connect" (`variant="pill-outline"`, icono `UserPlus`) — envia solicitud via `useSendFriendRequest`. Loading: "Sending..." |
+| `pending` + `direction: "sent"` | Boton "Pending" (`variant="pill-muted"`, disabled, icono `Clock`) |
+| `pending` + `direction: "received"` | Dos botones: "Accept" (`pill`, icono `Check`) + "Decline" (`pill-ghost`) via `useUpdateFriendship` |
+| `accepted` | Boton "Connected" (`variant="pill-builder"`, icono `Check`) — al click muestra confirmacion "Remove" (`pill-destructive`) + "Cancel" (`pill-ghost`) via `useRemoveFriendship` |
 
 El componente usa `useFriendshipStatus(targetUserId)` para obtener el estado actual y `Skeleton` durante la carga.
 
@@ -218,11 +222,16 @@ El componente usa `useFriendshipStatus(targetUserId)` para obtener el estado act
 | `PATCH` | `/api/profile` | Actualizar perfil |
 | `GET` | `/api/builders/[username]` | Perfil público por handle — ✅ implementado |
 | `POST` | `/api/integrations/talent-protocol` | Importar score, tags y credentials de TP — ✅ implementado |
+| `POST` | `/api/integrations/poap` | Importar POAPs de la wallet — ✅ implementado |
 
 `GET /api/builders/[username]`:
 - No requiere auth (perfil público).
-- Devuelve `UserProfile` filtrado: omite `email`, `privy_id`.
+- Devuelve `UserProfile` filtrado: omite **solo** `email` y `privy_id` (el resto, incluido `wallet_address`, se devuelve tal cual).
 - Si no existe el handle → `404 { message: "Builder not found" }`.
+
+`PATCH /api/profile`:
+- Requiere auth (token Privy). Resuelve el usuario por `privy_id`.
+- Valida con `patchProfileSchema`; si `handle` ya existe en otro usuario → `409 { message: "Handle already taken" }`.
 
 ---
 
@@ -230,9 +239,11 @@ El componente usa `useFriendshipStatus(targetUserId)` para obtener el estado act
 
 `lib/schemas/profile.ts` ya tiene `patchProfileSchema` con todos los campos editables.
 
-Para edit mode, usar `patchProfileSchema` como base pero **solo los campos editables desde perfil**:
-- `bio`, `archetype`, `avatar_url`, `skills`, `languages`, `region`, `country`, `city`, `timezone`, `github_url`, `twitter_url`, `farcaster_url`, `website_url`
-- Excluir: `handle` (permanente), `onboarding_step`, `is_verified`, `talent_protocol_score`, `poaps`
+El edit form (`ProfileEditForm`) usa `patchProfileSchema` como resolver, pero **solo edita estos campos** (los demás del schema se quedan fuera del formulario):
+- `bio`, `archetype`, `avatar_url`, `skills`, `languages`, `region`, `country`, `city`, `timezone`, `github_url`, `twitter_url`, `farcaster_url`
+- No editables desde el form: `handle` (permanente), `website_url`, `onboarding_step`, `is_verified`, `talent_protocol_score`, `poaps`
+
+> Nota: `patchProfileSchema` sí define `website_url`, `handle`, `is_verified`, `talent_protocol_score`, `poaps` y `onboarding_step` como campos válidos (se usan por otros flujos: onboarding, integraciones), pero el formulario de perfil no los expone.
 
 ---
 
@@ -296,12 +307,13 @@ app/api/builders/
 
 | Caso | Comportamiento |
 |---|---|
-| Bio vacía | En view: "No bio yet" en `text-muted-foreground`. En perfil público: igual. |
-| Sin skills | En view: "No skills added yet". En edit: abre el selector. |
-| Sin wallet | Sección On-chain muestra CTA para conectar wallet. Sin botón re-import. |
-| POAPs = [] con wallet | "No POAPs found on this wallet". Botón re-import. |
-| Re-import en curso | Spinner en botón. Campos on-chain no se actualizan hasta que el query se invalide y refetchee. |
-| Handle no encontrado en `/builders/[username]` | `notFound()` de Next.js → 404. |
+| Bio vacía | En view: "No bio yet." en `text-muted-foreground`. En perfil público: igual. |
+| Sin skills | En view: estado vacío en `ProfileSkills`. En edit: abre el selector. |
+| Sin wallet (owner) | On-chain muestra botón "Link Wallet" (Talent Score) y "Link a wallet to see your POAP collection." Sin botón Sync. |
+| Sin wallet (no owner) | On-chain muestra "No wallet connected." en ambas sub-secciones. |
+| POAPs = [] con wallet | "No POAPs found on this wallet." Botón Sync visible en el header. |
+| Re-import en curso | Spinner + "Importing..." en el botón. Campos on-chain no se actualizan hasta que el query se invalide y refetchee. |
+| Handle no encontrado en `/builders/[username]` | Bloque inline "Builder not found." + botón "Browse builders →" (no `notFound()` ni redirect). |
 | Perfil incompleto (onboarding no terminado) | No debería pasar — el layout protegido redirige al onboarding. |
 
 ---
@@ -313,7 +325,7 @@ app/api/builders/
 | ~~CTA "Connect" en perfil público (friendship system)~~ | ✅ Implementado — `ConnectButton` con estados Connect/Pending/Accept/Connected |
 | ~~Hacker Houses activas en sección Activity~~ | ✅ Implementado — usa `useMyHackerHouses` + `HackerHouseCard` |
 | ~~Link Wallet en on-chain section~~ | ✅ Implementado — `useLinkAccount` de Privy + auto-import |
-| `is_verified` activado automáticamente tras import exitoso | Fase 2 — hoy siempre es `false` |
+| `is_verified` activado automáticamente tras import exitoso | Fase 2 — no es automático. Hoy `is_verified` se activa **manualmente por un admin** vía `POST /api/admin/users/[id]/verify`; no hay verificación on-chain automática. |
 | Kitten colección expandida | Bloqueado por assets |
 | ~~`/dashboard/builders/[username]` — perfil público~~ | ✅ Implementado — usa `ProfileView` con `isOwner=false`, skeleton de carga, 404 con redirect a `/dashboard/builders` |
 
@@ -334,4 +346,4 @@ app/api/builders/
 - Activity section con Hack Spaces y Hacker Houses activas (usa `useMyHackSpaces` + `useMyHackerHouses`)
 
 **Pendiente:**
-- `is_verified` automático tras import — Fase 2
+- `is_verified` automático tras import — Fase 2. Hoy solo un admin lo activa (`POST /api/admin/users/[id]/verify`); el flag se muestra como etiqueta `✓ verified` junto al handle.

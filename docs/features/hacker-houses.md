@@ -8,89 +8,97 @@ Una Hacker House es un espacio de co-living físico donde builders se juntan par
 
 - Builder individual
 - Hack Space — via shortcut cuando el equipo está completo
-- Organización verificada — financia y gestiona con sus propias reglas (Fase 2)
+- Comunidad / organización — puede figurar como **sponsor** de una house (campo `sponsor_community_id` / `sponsor_name`)
+
+> **Sello de verificación.** No existe un endpoint de verificación específico para Hacker Houses. El sistema de verificación (`is_verified` + endpoints admin `/api/admin/.../verify`) aplica solo a **usuarios, comunidades y eventos**. Las comunidades pueden *solicitar* verificación (`verification_requested`) y un admin la concede activando `is_verified`, que renderiza un `BadgeCheck` verde en sus cards. Una house patrocinada por una comunidad verificada hereda esa confianza indirectamente.
+>
+> En la card de Hacker House, el ícono `BadgeCheck` verde se muestra cuando la house es **Sponsored** (`modality === "free"`), no por una verificación de admin.
 
 ---
 
-> **Estado actual (marzo 2026):** ✅ Implementado. Crear, listar, filtrar, buscar, paginar, ver detalle, aplicar y gestionar aplicaciones están completos. Ver rutas en `docs/navigation.md`.
+> **Estado actual (junio 2026):** ✅ Implementado. Crear, listar, filtrar, buscar, paginar, ver detalle, aplicar, unirse y gestionar aplicaciones están completos. Las **tres modalidades** (Sponsored / Co-Payment / Staking) tienen UI completa, incluyendo el flujo de pago/staking (`/dashboard/hacker-houses/[id]/payment`). La liquidación on-chain real (escrow, split, yield) es **Fase 2**. Ver rutas en `docs/navigation.md`.
 >
-> **Nota:** `application_deadline` es **requerido** en el schema de creación (Zod valida `min(1)`), no opcional.
+> **Nota:** `application_deadline` es **opcional** en el schema de creación (Zod `z.string().optional()`).
 >
-> **Decisiones de implementación (Fase 1):**
-> - Solo modalidad **gratuita** (`modality: 'free'` hardcodeado en schema de creación)
+> **Decisiones de implementación:**
+> - **Tres modalidades** (`modality: 'free' | 'paid' | 'staking'`), labeladas en UI como **Sponsored / Co-Payment / Staking**. Default del form: `'paid'`.
+> - Modalidad `free` (Sponsored) → fuerza `application_type: 'curated'` y muestra el selector de **Sponsor** (comunidad o nombre manual). Modalidades `paid` / `staking` → muestran `price_per_person` (USDC) y `contract_type` (`multisig | admin_wallet`).
 > - `includes` → 5 columnas booleanas individuales (no JSONB)
 > - `images` → `text[]` en Supabase, máximo 5 fotos. Preview local via `URL.createObjectURL`, upload en bloque al confirmar creación.
 > - `house_rules` → texto libre, máximo 500 caracteres
 > - `profile_sought` → arquetipos del sistema (`visionary | strategist | builder`)
-> - `applications` → tabla `applications` unificada con `hack_space_id | hacker_house_id` nullable + `target_type` discriminador + CHECK constraint
+> - `address` → dirección exacta **requerida** (min 5 caracteres), solo revelada a participantes aceptados; el pin público se muestra difuminado a nivel de barrio
+> - Info de **self check-in** (`checkin_wifi_password`, `checkin_room_info`, `checkin_lockbox`, `checkin_notes`) — solo revelada a participantes aceptados
+> - `applications` → tabla `applications` unificada con `hack_space_id | hacker_house_id` nullable + `target_type` discriminador
 > - Estados: transición manual por el creador (`open → full → active → finished`)
-> - Formulario: 4 pasos (House · Dates & Amenities · Community · Access) con toggle de evento inline
+> - Formulario: **5 pasos** (House · Amenities · Community · Access · Check-in) con toggle de evento inline en el paso Community
 
 ## Formulario de Creación (`/dashboard/hacker-houses/create`)
 
-Formulario multi-step de 4 pasos implementado en `app/(protected)/dashboard/hacker-houses/create/_components/create-hacker-house-form.tsx`.
+Formulario multi-step de **5 pasos** implementado en `app/(protected)/dashboard/hacker-houses/create/_components/create-hacker-house-form.tsx`. El mismo componente se reutiliza en modo edición (`editMode`), donde todos los pasos se muestran a la vez.
 
 ### Step 1 — House
 - Nombre de la Hacker House (`name`) — 3–80 caracteres
-- Ubicación — 3 comboboxes cascada opcionales:
-  - Región (`region`, UI-only, no persiste en DB) — de `LOCATION_DATA` en `lib/constants/location.ts`
-  - País (`country`) — se filtra según región seleccionada
-  - Ciudad (`city`) — se filtra según país seleccionado
-- Barrio / zona aproximada (`neighborhood`) — opcional, sin dirección exacta por privacidad
+- **Tipo de house** (`modality`) — RadioGroup con 3 opciones:
+  - **Co-Payment** (`paid`) — los miembros dividen los costos
+  - **Sponsored** (`free`) — un sponsor cubre la estadía
+  - **Staking** (`staking`) — stakear cripto para reservar el cupo
+- Según la modalidad seleccionada:
+  - `paid` / `staking` → **Price per person** / **Stake amount** (`price_per_person`, USDC, opcional) + **Contract type** (`contract_type`: `multisig | admin_wallet`, opcional)
+  - `free` → selector de **Sponsor** (`sponsor_community_id` desde comunidades existentes, o `sponsor_name` manual)
+- Ubicación — comboboxes cascada:
+  - Región (`region`, UI-only, no persiste en DB) — de `REGIONS` en `lib/constants/location.ts`
+  - País (`country`) — requerido; se filtra según región seleccionada
+  - Ciudad (`city`) — requerido; se filtra según país seleccionado
+- Barrio / zona aproximada (`neighborhood`) — opcional
+- **Airbnb / Booking link** (`booking_url`) — opcional, URL válida
+- **Hotel name** (UI-only) — botón "Auto-fill from hotel" que consulta Nominatim para rellenar `address`, `lat`, `lng`
+- **Exact Address** (`address`) — **requerido** (min 5 caracteres). Solo revelado a participantes aceptados; público como pin difuminado. Botón "Set pin" geocodifica la dirección via Nominatim
 
-### Step 2 — Dates & Amenities
-- Fecha de inicio (`start_date`) — `DatePicker`
-- Fecha de fin (`end_date`) — `DatePicker`
-- Capacidad máxima de personas (`capacity`): stepper `− N +` (min 2, max 50, default 4)
-- Qué incluye (cards togglables, columnas booleanas): `includes_private_room` · `includes_shared_room` · `includes_meals` · `includes_workspace` · `includes_internet`
-- Imágenes (`images`): multi-select, hasta 5 fotos, AVIF + JPEG + PNG + WebP. Preview local via `URL.createObjectURL`. Se suben en bloque al confirmar creación via `POST /api/hacker-houses/upload-image`. Se guardan como `text[]` en Supabase.
+### Step 2 — Amenities
+- Fecha de inicio (`start_date`) — `DatePicker`, requerida
+- Fecha de fin (`end_date`) — `DatePicker`, requerida
+- Capacidad máxima (`capacity`): stepper `− N +` (min 2, max 50, default 4)
+- Qué incluye (cards togglables con Checkbox, columnas booleanas): `includes_private_room` · `includes_shared_room` · `includes_meals` · `includes_workspace` · `includes_internet`
+- Fotos (`images`): multi-select, hasta 5 fotos, JPEG + PNG + WebP + GIF + AVIF, máx 5MB c/u. Preview local via `URL.createObjectURL`. Se suben en bloque al confirmar via `POST /api/hacker-houses/upload-image`. Primera = portada
 
 ### Step 3 — Community
 - Perfil buscado (`profile_sought`): arquetipos del sistema — `visionary | strategist | builder` — al menos 1 requerido
-- Idioma de comunicación (`language`) — multi-select pills, permite seleccionar varios. Default: `["English"]`.
-- Reglas básicas de la casa (`house_rules`) — textarea libre, máximo 500 caracteres, opcional
+- Idioma de trabajo (`language`) — multi-select pills. Default: `["English"]`, al menos 1 requerido
+- Reglas de la casa (`house_rules`) — textarea, máximo 500 caracteres, opcional
+- **Evento relacionado** (toggle inline `has_event`):
+  - Picker de eventos HHP existentes (`useEvents`) que auto-rellena los campos de abajo
+  - Nombre del evento (`event_name`)
+  - Link del evento (`event_url`) — opcional
+  - Fecha de inicio / fin del evento (`event_start_date` / `event_end_date`)
+  - La house es: `before · during · after` — multi-select pills (`event_timing: string[]`)
 
 ### Step 4 — Access
-- Tipo de aplicación (`application_type`): RadioGroup — `open · invite_only · curated`
-- Deadline para aplicar (`application_deadline`) — DatePicker, **requerido**
-- ~~Filtros on-chain: POAPs, NFTs, Talent Protocol score~~ → **Pospuesto a Fase 2**
-- ~~Staking requerido~~ → **Pospuesto a Fase 2**
+- Tipo de aplicación (`application_type`):
+  - Si modalidad es `free` (Sponsored): forzado a **Curated** (no editable) + campo opcional **External application form** (`application_form_url`)
+  - Si modalidad es `paid` / `staking`: RadioGroup — `open · invite_only · curated`
+- Deadline para aplicar (`application_deadline`) — DatePicker, **opcional**
 
-### Evento Relacionado (Opcional — inline toggle en cualquier step del formulario)
-- Toggle: ¿Está ligada a un evento? (`has_event`) — sección condicional con borde izquierdo
-- Nombre del evento (`event_name`)
-- Link del evento (`event_url`) — opcional
-- Fecha de inicio del evento (`event_start_date`)
-- Fecha de fin del evento (`event_end_date`) — opcional
-- La Hacker House es: `before · during · after` — multi-select pills, permite seleccionar varios (`event_timing: string[]`)
+### Step 5 — Check-in
+Información de self check-in, solo revelada a participantes aceptados. Todos los campos opcionales:
+- WiFi (`checkin_wifi_password`)
+- Habitación / apartamento (`checkin_room_info`)
+- Lockbox / código de puerta (`checkin_lockbox`)
+- Notas adicionales (`checkin_notes`)
 
-> Si está vinculada a un evento, aparece destacada en el mapa. Los builders que siguen ese evento la ven en su feed con prioridad.
->
-> **Geocodificación automática:** Al crear o editar una Hacker House con `city` y `country`, las coordenadas `lat/lng` se generan automáticamente via Nominatim (OpenStreetMap). La función `geocodeAndUpdate` en `lib/geocode.ts` es fire-and-forget — no bloquea la respuesta. Las coordenadas permiten mostrar la house en el mapa interactivo (`/dashboard/map`).
+> **Geocodificación automática:** Si el form no envía `lat`/`lng` (no se usó el botón de pin), al crear/editar con `city` + `country` (+ `address` opcional) las coordenadas se generan via Nominatim (OpenStreetMap). La función `geocodeAndUpdate` en `lib/geocode.ts` es fire-and-forget. Las coordenadas alimentan el mapa interactivo (`/dashboard/map`).
 
 ---
 
 ## Modalidades
 
-| Modalidad | Fase | Descripción |
-|---|---|---|
-| **Gratuita** | Fase 1 ✅ | Sin pago ni staking. Filtros opcionales de acceso. |
-| **De pago** | Fase 2 🔒 | Pago grupal via smart contract auditado. Split automático. Reembolso si no se llena en 7 días. |
-| **Con staking** | Fase 2 🔒 | Stake perdible si el builder no asiste. Gestionado por el creador via dashboard. |
+| Modalidad | Label UI | Estado | Descripción |
+|---|---|---|---|
+| `free` | **Sponsored** | ✅ UI completa | Un sponsor cubre la estadía. Sin pago del builder. Aplicación siempre curated. |
+| `paid` | **Co-Payment** | ✅ UI completa | Los miembros dividen los costos (`price_per_person` USDC). Flujo de pago en `/payment`. |
+| `staking` | **Staking** | ✅ UI completa | El builder stakea para reservar el cupo. Flujo de stake en `/payment`. |
 
-> La plataforma no custodia fondos. Todo opera via smart contract (Fase 2).
-
----
-
-## Hacker Houses de Organizaciones (Fase 2)
-
-Fuera del alcance de Fase 1. Las organizaciones cubren todos los costos y definen sus propias reglas de acceso y staking.
-
----
-
-## Dashboard de Asistencia (`/dashboard`) — Fase 2
-
-El creador marca cada builder como `asistió / no asistió`. El smart contract procesa automáticamente la liberación o pérdida del stake.
+> El flujo de pago/staking (`/dashboard/hacker-houses/[id]/payment`) tiene UI completa (pasos `details → payment → success` con confetti). Al confirmar llama a `POST /api/hacker-houses/[id]/join` (upsert de aplicación como `accepted`). La **liquidación on-chain real** — escrow, split automático, devolución de stake, yield — es **Fase 2**: las columnas `escrow_address`, `host_safe`, `deposit_amount_usdc`, `withdraw_date`, `house_type`, `yield_mode`, `yield_dest` existen en la tabla `hacker_houses` pero aún no se exponen en tipos ni en endpoints on-chain (no existe ruta de escrow todavía).
 
 ---
 
@@ -106,45 +114,41 @@ Cada Hacker House genera su propio POAP para los asistentes confirmados. Queda e
 
 ---
 
-## Arquitectura técnica — Fase 1
+## Arquitectura técnica
 
 ### DB: tabla `applications` unificada
-Soporta ambas entidades sin romper FK integrity:
+Soporta ambas entidades (hack_spaces y hacker_houses) sin romper FK integrity:
 
 - `hack_space_id uuid` — nullable, FK → `hack_spaces.id`
 - `hacker_house_id uuid` — nullable, FK → `hacker_houses.id`
-- `target_type text` — `'hack_space' | 'hacker_house'`
-- CHECK constraint: exactamente una FK non-null por fila
-- Código de Hack Spaces no cambia — `hack_space_id` sigue igual.
+- `target_type text` — `'hack_space' | 'hacker_house'` (default `'hack_space'`, sin CHECK constraint en DB)
+- `status` — `'pending' | 'accepted' | 'rejected'` (default `pending`)
 
 ### DB: tabla `hacker_houses`
-Columnas de `includes` como booleanas individuales (no JSONB). `images` como `text[]`. `modality` con default `'free'`. Columnas `lat double precision` y `lng double precision` (nullable) — geocodificadas automáticamente al crear/editar.
+Columnas de `includes` como booleanas individuales (no JSONB). `images` como `text[]`. `modality` con default `'free'` (sin CHECK; el tipo TS es `'free' | 'paid' | 'staking'`). `lat`/`lng` `float8` (nullable) — geocodificadas automáticamente al crear/editar. Además de los campos del form, la tabla incluye columnas on-chain de Fase 2 (`escrow_address`, `host_safe`, `deposit_amount_usdc`, `withdraw_date`, `house_type`, `yield_mode`, `yield_dest`) aún no surfaceadas en `lib/types.ts`.
 
 ### Participantes
-- El creador cuenta como participante #1 — su `avatar_url` aparece primero
+- El creador cuenta como participante #1 — aparece primero
 - `participants_count = accepted_applications + 1`
-- Auto-transición a `'full'` cuando `participants_count >= capacity` al aceptar una aplicación
-- En la card: hasta 6 avatares + overflow "+N"
-- En el detalle: todos los avatares
+- En la card: hasta 6 avatares; el `participants` del API ya viene truncado a 6 (`[creator, ...accepted].slice(0, 6)`)
+- Auto-transición a `'full'` es gestionada por el creador (no hay auto-transición en el endpoint `apply`/review; el creador la marca manualmente)
 
 ### Imágenes
-- Upload a Supabase Storage bucket `hacker-house-images`
+- Upload via `POST /api/hacker-houses/upload-image` a Supabase Storage
 - Stored como `text[]` en `hacker_houses`
-- Máx 5 fotos por Hacker House; formatos: AVIF, JPEG, PNG, WebP
+- Máx 5 fotos; formatos: JPEG, PNG, WebP, GIF, AVIF; máx 5MB por archivo
 - Preview local via `URL.createObjectURL` — sin upload anticipado
-- Al crear/guardar: `Promise.all(files.map(upload))`, luego insert/update con URLs resultantes
+- En modo edición: las existentes (`existingImages`) se combinan con las nuevas (`pendingFiles`)
 - Primera imagen = portada (cover en card y hero en detalle)
-- Detalle: hero grande + strip de thumbnails horizontal debajo
 
 ### Búsqueda en lista
-- `q` hace `ilike` sobre `name` y `city` (OR) — útil para spaces físicos
+- `q` hace `ilike` sobre `name` y `city` (OR), con sanitización de `%_,()`
 
 ### Status transitions (manual por el creador)
 ```
-open → full (auto cuando capacity se completa al aceptar aplicación)
-open/full → active (el creador marca "Ya empezó")
-active → finished (el creador marca "Terminó")
+open → full → active → finished
 ```
+El creador cambia el estado via PATCH desde la página de edición / detalle. El endpoint de `apply` solo acepta aplicaciones cuando `status === "open"`.
 
 ## Estados de la Hacker House
 
@@ -160,10 +164,11 @@ active → finished (el creador marca "Terminó")
 ## Aplicación a una Hacker House
 
 - Los builders aplican con mensaje opcional (máx 300 caracteres).
-- Formulario inline en la card o en la página de detalle.
-- El creador puede aceptar o rechazar desde el `ApplicationManager`.
-- Al aceptar: si `participants_count >= capacity`, el estado pasa automáticamente a `full`.
-- En Fase 1: cualquier builder puede aplicar (sin validación on-chain).
+- `POST /api/hacker-houses/[id]/apply` solo funciona si `status === "open"`. Es idempotente: una aplicación `pending` existente se devuelve sin re-notificar; una `accepted` devuelve 409.
+- Al aplicar por primera vez se inserta una notificación `hacker_house_application` para el creador.
+- El creador acepta o rechaza desde el `HackerHouseApplicationManager` (`PATCH /api/hacker-houses/[id]/applications/[appId]`).
+- `POST /api/hacker-houses/[id]/join` hace un upsert de la aplicación como `accepted` (onConflict `applicant_id,hacker_house_id`) — usado por el flujo de pago/staking en `/payment`.
+- Cualquier builder puede aplicar (sin validación on-chain — Fase 2).
 
 ---
 
@@ -173,14 +178,16 @@ Implementado en `app/(protected)/dashboard/_components/hacker-house-card.tsx`.
 
 | Zona | Contenido |
 |---|---|
-| **Imagen** | `images[0]` o gradiente placeholder. Overlay `from-card to-transparent` desde abajo. |
-| **Header** | Nombre + badge de estado (color según STATUS_CONFIG) |
+| **Imagen** | Carrusel de `images` con zonas táctiles invisibles izquierda/derecha + dots; o gradiente placeholder. Overlay `from-card/80 to-transparent`. |
+| **Status badge** | Top-right, color según `STATUS_CONFIG` |
+| **Modality tag** | Bottom-left: `Sponsored` (verde) · `Staking` (morado) · `Co-payment` (naranja) |
+| **Header** | Nombre + `BadgeCheck` verde si la house es Sponsored (`modality === "free"`) |
 | **Ubicación** | Ciudad + país |
-| **Fechas** | `15–22 Mar 2026` con ícono calendario |
-| **Amenidades** | Pills de íconos (solo los `true`): 🛏 Private · 🤝 Shared · 🍳 Meals · 💻 Workspace · 🌐 Internet |
-| **Participantes** | Avatares Cypher Kitten (máx 6) con color de arquetipo de fondo. Creador es el primero. Contador `N/capacity`. |
-| **Evento vinculado** | Badge con nombre del evento si hay `event_name` |
-| **CTA** | `Apply →` / `Manage →` / `View →` según estado y rol |
+| **Fechas** | Rango `Mar 15–22, 2026` con ícono calendario |
+| **Evento vinculado** | Línea `during {event_name}` con punto color `--strategist` si hay `event_name` |
+| **Amenidades** | Hasta 3 pills (solo los `true`) + `+N` overflow |
+| **Participantes** | Hasta 6 avatares con color de arquetipo. Creador primero. Contador `N/capacity spots`. |
+| **CTA** | `View →` (toda la card es un `Link` al detalle) |
 
 ---
 
@@ -188,12 +195,13 @@ Implementado en `app/(protected)/dashboard/_components/hacker-house-card.tsx`.
 
 Implementado en `app/(protected)/dashboard/hacker-houses/page.tsx`.
 
-Filtros en URL via `nuqs` (`useQueryStates`). Parámetros: `status`, `profile_sought`, `q`.
+Filtros en URL via `nuqs` (`useQueryStates`). Parámetros: `status`, `profile_sought`, `q`, `event_name`.
 
-- **Búsqueda** (`q`): debounced 500ms, busca en `name` OR `city` (`ilike`)
-- **Status**: pills `Open · Full · Active`
+- **Búsqueda** (`q`): debounced, busca en `name` OR `city` (`ilike`)
+- **Status**: pills `Open · Full · Active · Finished`
 - **Profile sought**: pills Visionary / Strategist / Builder con color de arquetipo
-- **Paginación**: `useInfiniteQuery` + Load more button
+- **Houses finished**: query separada cuando no hay filtros activos
+- **Paginación**: `useInfiniteQuery` + Load more
 - **Skeleton**: replica la estructura de la card
 
 ---
@@ -204,12 +212,15 @@ Filtros en URL via `nuqs` (`useQueryStates`). Parámetros: `status`, `profile_so
 |---|---|---|
 | `POST` | `/api/hacker-houses` | Crear hacker house (auth requerida) |
 | `GET` | `/api/hacker-houses` | Listar con filtros, búsqueda y paginación |
-| `GET` | `/api/hacker-houses/:id` | Detalle (con creator avatar + participants aceptados) |
+| `GET` | `/api/hacker-houses/:id` | Detalle (con creator + participants aceptados) |
 | `PATCH` | `/api/hacker-houses/:id` | Actualizar (solo creador) |
 | `POST` | `/api/hacker-houses/upload-image` | Subir imagen a Supabase Storage, retorna `{ image_url }` |
-| `POST` | `/api/hacker-houses/:id/apply` | Aplicar |
+| `POST` | `/api/hacker-houses/:id/apply` | Aplicar (solo si `status === "open"`; idempotente; notifica al creador) |
+| `POST` | `/api/hacker-houses/:id/join` | Unirse — upsert de aplicación como `accepted` (usado por el flujo de pago/staking) |
 | `GET` | `/api/hacker-houses/:id/applications` | Listar aplicaciones (solo creador) |
 | `PATCH` | `/api/hacker-houses/:id/applications/:appId` | Aceptar o rechazar aplicación (solo creador) |
+
+> No existe endpoint de verificación para hacker houses bajo `/api/admin/**` (sí para `communities`, `events`, `users`).
 
 ### GET `/api/hacker-houses` — Query params
 
@@ -217,17 +228,18 @@ Filtros en URL via `nuqs` (`useQueryStates`). Parámetros: `status`, `profile_so
 |---|---|---|---|
 | `status` | string | — | Filtro exacto. Si omitido: `open, full, active` |
 | `profile_sought` | string | — | Archetype ID — filtra si el array `profile_sought` lo contiene |
-| `q` | string | — | Búsqueda en `name` OR `city` (`ilike %q%`) |
+| `q` | string | — | Búsqueda en `name` OR `city` (`ilike %q%`, sanitizado) |
+| `event_name` | string | — | Filtro exacto por `event_name` |
 | `limit` | number | 12 | Items por página |
 | `offset` | number | 0 | Desplazamiento para paginación |
-| `creator_id` | string | — | Filtro por creador (rama separada, retorna sin paginación) |
+| `creator_id` | string | — | Filtro por creador (rama separada, sin paginación, estados `open/full/active`) |
 
-**Respuesta paginada** (cuando no hay `creator_id`):
+**Respuesta paginada** (sin `creator_id`):
 ```ts
 { hacker_houses: HackerHouse[], total: number, offset: number, limit: number }
 ```
 
-**Respuesta legacy** (cuando hay `creator_id`):
+**Respuesta legacy** (con `creator_id`):
 ```ts
 { hacker_houses: HackerHouse[] }
 ```
@@ -239,34 +251,37 @@ Filtros en URL via `nuqs` (`useQueryStates`). Parámetros: `status`, `profile_so
 | Hook | Descripción |
 |---|---|
 | `useFilteredHackerHouses(filters)` | Lista paginada con `useInfiniteQuery`. |
-| `useMyHackerHouses(creatorId)` | Lista por creador (perfil). Sin paginación. Usa `creator_id` param. |
+| `useHackerHousesByEvent(eventName)` | Houses ligadas a un evento. |
+| `useMyHackerHouses(creatorId)` | Lista por creador (perfil). Sin paginación. Usa `creator_id`. |
 | `useHackerHouse(id)` | Detalle de una hacker house. |
 | `useCreateHackerHouse()` | POST — crear. |
 | `useUpdateHackerHouse(id)` | PATCH — actualizar. |
 | `useApplyToHackerHouse(id)` | POST — aplicar. |
+| `useJoinHackerHouse(id)` | POST — unirse (flujo de pago/staking). |
 | `useHackerHouseApplications(id)` | GET — listar aplicaciones (solo creador). |
 | `useReviewHackerHouseApplication(id)` | PATCH — aceptar/rechazar aplicación. |
 | `useUploadHackerHouseImage()` | POST FormData — subir imagen, retorna `{ image_url }`. |
 
 ---
 
-## Estado actual (marzo 2026)
+## Estado actual (junio 2026)
 
 **Implementado:**
-- Listado con filtros (status, profile_sought, q), paginación "Load more", skeleton
-- Creación (formulario 4 pasos: House → Dates & Amenities → Community → Access + toggle evento)
-- Página de detalle: hero imagen, galería de thumbnails, amenidades, participantes, apply form, owner actions, application manager
-- Aplicar y gestionar aplicaciones (aceptar/rechazar)
+- Listado con filtros (status, profile_sought, q, event_name), query separada de finished, paginación "Load more", skeleton
+- Creación (formulario **5 pasos**: House → Amenities → Community → Access → Check-in + toggle evento)
+- Las **3 modalidades** (Sponsored / Co-Payment / Staking) con sus campos (sponsor, price_per_person, contract_type)
+- Página de detalle: hero imagen, galería, amenidades, participantes, apply form, owner actions, application manager
+- Flujo de pago/staking UI (`/dashboard/hacker-houses/[id]/payment`) — `details → payment → success`, confirma vía `join`
+- Aplicar, unirse y gestionar aplicaciones (aceptar/rechazar)
 - Edición por el creador (`/dashboard/hacker-houses/[id]/edit`)
-- Transición de estados manual: `open/full → active → finished`
+- Transición de estados manual: `open → full → active → finished`
+- Self check-in info (revelada a aceptados)
+- Geocodificación automática + lookup manual (hotel / address) hacia el mapa
 - Upload de imágenes a Supabase Storage
-- Hook `useMyHackerHouses(creatorId)` — usado en perfil Activity section
-- Feed de Hacker Houses en `/dashboard` (componente `HackerHousesFeed`)
+- Feed de Hacker Houses en `/dashboard` (`HackerHousesFeed`)
 
-**Pendiente:**
-- Modalidades de pago (`paid`, `staking`) — Fase 2
-- Filtros on-chain (POAPs, NFTs, Talent Score) — Fase 2
-- Key NFT por cupo — Fase 2
-- HHP POAPs por asistencia — Fase 2
-- Hacker Houses de organizaciones — Fase 2
-- Dashboard de asistencia — Fase 2
+**Pendiente (Fase 2 — on-chain):**
+- Liquidación on-chain de pago/staking: escrow, split automático, devolución de stake (columnas `escrow_address`, `host_safe`, `deposit_amount_usdc`, `withdraw_date`, `house_type`, `yield_mode`, `yield_dest` ya en DB, sin endpoints)
+- Filtros on-chain (POAPs, NFTs, Talent Score)
+- Key NFT por cupo
+- HHP POAPs por asistencia

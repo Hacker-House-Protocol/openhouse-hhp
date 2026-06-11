@@ -49,9 +49,9 @@ Inmediatamente después del auth, la plataforma importa el historial on-chain de
 | Talent Tags (skill tags) | Talent Protocol API (`/profile`) | Continua sin tags — array vacio |
 | Talent Credentials | Talent Protocol API (`/credentials`) | Continua sin credentials — array vacio |
 
-**UX:** Se muestra una pantalla transitoria breve *"Scanning your on-chain history..."* mientras la importación corre en background. Avanza automáticamente sin esperar el resultado — nunca bloquea el flujo. El objetivo es hacer visible que el historial on-chain del builder es parte de su identidad en el protocolo.
+**UX:** Se muestra una pantalla transitoria breve (título *"Reading the chain."*) mientras la importación corre en background. Avanza automáticamente sin esperar el resultado — nunca bloquea el flujo. El objetivo es hacer visible que el historial on-chain del builder es parte de su identidad en el protocolo.
 
-> **Estado actual:** Implementado. La pantalla transitoria (`StepScanning`) muestra 5 ítems de scan con animación escalonada y una barra de progreso de 2.4s. Avanza automáticamente a los 2.5s. Solo se muestra si el builder tiene una wallet externa con imports pendientes (`walletClientType !== "privy"` y sin score/POAPs aún importados).
+> **Estado actual:** Implementado. La pantalla transitoria (`StepScanning`) muestra 5 ítems de scan (`Wallet address`, `POAP collection`, `Builder Score`, `On-chain transactions`, `Protocol memberships`) con animación escalonada y una barra de progreso de 2.4s. Avanza automáticamente a los 2.5s. Solo se muestra si el builder tiene una wallet externa con imports pendientes (un `linkedAccount` de tipo `wallet` con `walletClientType !== "privy"`, y `talent_protocol_score === null` y sin POAPs aún importados). El disparo de los imports (`importTalentScore` + `importPoaps`) ocurre al entrar a esta fase.
 
 **Condición importante:** Ambas APIs (Talent Protocol y POAP) buscan historial usando la `wallet_address` del usuario. Esto solo es útil si el builder entró con una **wallet externa existente** (MetaMask, etc.) que ya tiene actividad on-chain. Si entró con email, Privy le crea una embedded wallet nueva — sin historial — y ambas APIs devolverán vacío. La pantalla transitoria solo debería mostrarse si `wallet_address` corresponde a una wallet externa, no a una embedded.
 
@@ -64,7 +64,9 @@ Browser → POST /api/integrations/talent-protocol → Next.js server (con API k
 Browser → POST /api/integrations/poap           → Next.js server (con API key) → api.poap.tech
 ```
 
-La llamada a Talent Protocol ejecuta los 3 endpoints en paralelo via `Promise.allSettled` y persiste `talent_protocol_score`, `talent_tags` (text[]) y `talent_credentials` (jsonb) en la tabla `users`.
+La llamada a Talent Protocol ejecuta los 3 endpoints en paralelo via `Promise.allSettled` e intenta persistir `talent_protocol_score`, `talent_tags` y `talent_credentials` en la tabla `users` (`POST /api/integrations/talent-protocol`). Si el usuario no tiene `wallet_address`, el endpoint devuelve valores vacíos sin llamar a la API externa.
+
+> **Nota técnica:** `lib/types.ts` declara `talent_tags` y `talent_credentials` en `UserProfile`, pero estas columnas no existen actualmente en el esquema real de `users` en Supabase (solo `talent_protocol_score` y `poaps` están materializados). El `update` de esos dos campos puede no estar surtiendo efecto en DB hasta que se agregue la columna correspondiente.
 
 **Fase 2 (futura):** Un paso dedicado donde el builder puede ver lo que se importó ("We found 12 POAPs and your Builder Score is 847") y conectar manualmente si no se detectó nada. Esto activa `is_verified: true` en el perfil.
 
@@ -89,7 +91,7 @@ Dos decisiones permanentes en un mismo paso: el nombre y la cara del builder en 
 | Handle | Text input con prefijo `@` | ✅ | 3-20 chars, `/^[a-z0-9_]+$/`, único. Permanente. |
 | Cypher Kitten | Grid de GIFs seleccionables | ✅ | Colección pre-armada en `CYPHER_KITTENS` (`lib/onboarding.ts`). Se guarda como `avatar_url`. |
 
-El botón Continue está deshabilitado hasta que ambos campos estén completos. El error de handle duplicado se muestra como error de servidor inline (`identityError` en `OnboardingWizard`).
+El botón Continue está deshabilitado hasta que ambos campos estén completos (handle válido + Cypher Kitten seleccionado). El handle se normaliza al teclear (lowercase, se eliminan caracteres fuera de `[a-z0-9_]`). El error de handle duplicado se muestra como error de servidor inline (`identityError` en `OnboardingWizard`); el endpoint `PATCH /api/profile` devuelve `409 "Handle already taken"`. Si el error contiene "taken"/"already", se ofrece un atajo *"Try @{handle}_2"* que precarga la variante sugerida.
 
 ---
 
