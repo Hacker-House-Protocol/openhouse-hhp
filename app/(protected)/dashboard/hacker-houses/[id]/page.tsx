@@ -12,6 +12,8 @@ import {
   useUpdateHackerHouse,
 } from "@/services/api/hacker-houses"
 import { useProfile } from "@/services/api/profile"
+import { useKernelWallet } from "@/hooks/use-kernel-wallet"
+import { useBuilderSpot } from "@/hooks/use-builder-spot"
 import {
   Briefcase,
   CalendarDays,
@@ -177,6 +179,9 @@ export default function HackerHouseDetailPage({
   const { id } = use(params)
   const { data: hackerHouse, isLoading } = useHackerHouse(id)
   const { data: profile } = useProfile({ enabled: true })
+  const { kernelAddress } = useKernelWallet()
+  const escrowAddress = (hackerHouse?.escrow_address ?? null) as `0x${string}` | null
+  const { data: builderSpot } = useBuilderSpot({ escrowAddress, builderAddress: kernelAddress })
   const apply = useApplyToHackerHouse(id)
   const updateHackerHouse = useUpdateHackerHouse(id)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -221,8 +226,10 @@ export default function HackerHouseDetailPage({
   }
 
   const isOwner = profile?.id === hackerHouse.creator.id
-  // hasPaid: user has an accepted application (applies to creator too — they must pay their share)
-  const hasPaid = (hackerHouse.participants ?? []).some((p) => p.id === profile?.id)
+  // hasPaid: DB participants (old flow) OR on-chain escrow deposit (web3 flow)
+  const hasPaid =
+    (hackerHouse.participants ?? []).some((p) => p.id === profile?.id) ||
+    !!builderSpot?.hasDeposited
   const isAccepted = hasPaid || isOwner
   const modeCfg = MODE_CONFIG[hackerHouse.modality] ?? MODE_CONFIG.paid
   const statusCfg = STATUS_CONFIG[hackerHouse.status as HouseStatus] ?? STATUS_CONFIG.open
