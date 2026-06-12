@@ -38,23 +38,28 @@ export function useKernelWallet() {
     try {
       // 1. Try embedded wallet first (email/social login users)
       let wallet = getEmbeddedConnectedWallet(wallets)
+      console.log("[KernelWallet] wallets count:", wallets.length, "embedded:", !!wallet)
+      console.log("[KernelWallet] wallet types:", wallets.map(w => `${w.walletClientType}:${w.address?.slice(0, 8)}`))
 
       // 2. Fall back to any connected wallet (MetaMask, etc.)
       if (!wallet) {
         wallet = wallets[0] ?? null
+        console.log("[KernelWallet] fallback to wallets[0]:", !!wallet)
       }
 
       // 3. If still no wallet, create an embedded one (first-time email users)
       if (!wallet) {
+        console.log("[KernelWallet] no wallet found, creating embedded wallet...")
         try {
           const created = await createWallet()
-          // After creation, the wallet should be in the wallets array
-          // but we can use the returned wallet directly
+          console.log("[KernelWallet] created wallet:", created?.address?.slice(0, 10))
           wallet = created as unknown as typeof wallets[0]
-        } catch {
+        } catch (createErr) {
+          console.log("[KernelWallet] createWallet error:", createErr)
           // createWallet throws if embedded wallet already exists
           // retry getting it from the array
           wallet = getEmbeddedConnectedWallet(wallets) ?? wallets[0] ?? null
+          console.log("[KernelWallet] retry after error:", !!wallet)
         }
       }
 
@@ -62,6 +67,8 @@ export function useKernelWallet() {
         setState({ status: "error", error: "No wallet available. Please log in first." })
         return null
       }
+
+      console.log("[KernelWallet] using wallet:", wallet.walletClientType, wallet.address?.slice(0, 10))
 
       const provider = await wallet.getEthereumProvider()
       const address = wallet.address as `0x${string}`
