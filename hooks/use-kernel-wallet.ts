@@ -31,7 +31,7 @@ export function useKernelWallet() {
     const wallet = wallets[0]
     if (!wallet) {
       setState({ status: "error", error: "No wallet connected. Please log in first." })
-      return
+      return null
     }
 
     setState({ status: "loading" })
@@ -52,9 +52,11 @@ export function useKernelWallet() {
       ])
 
       setState({ status: "ready", kernelClient, kernelAddress })
+      return { kernelClient, kernelAddress }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to initialize smart wallet"
       setState({ status: "error", error: message })
+      return null
     }
   }, [wallets])
 
