@@ -44,10 +44,14 @@ export async function GET(req: NextRequest) {
     }
     return houses.map((house) => {
       const accepted = byHouse[house.id] ?? []
+      const creatorAlreadyAccepted = accepted.some((p) => p.id === house.creator?.id)
+      const uniqueParticipants = creatorAlreadyAccepted
+        ? accepted
+        : [house.creator, ...accepted].filter(Boolean)
       return {
         ...house,
-        participants: [house.creator, ...accepted].slice(0, 6),
-        participants_count: accepted.length + 1,
+        participants: uniqueParticipants.slice(0, 6),
+        participants_count: uniqueParticipants.length,
       }
     })
   }
