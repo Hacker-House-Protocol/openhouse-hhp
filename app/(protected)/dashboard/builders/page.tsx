@@ -105,7 +105,7 @@ function NetworkBuilderCard({
 }) {
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
   const displayName = builder.handle ? `@${builder.handle}` : "Anonymous"
-  const firstSkill = (builder.skills ?? [])[0] ?? null
+  const firstTag = (builder.talent_tags ?? [])[0] ?? (builder.skills ?? [])[0] ?? null
   const isOwnCard = currentUserId === builder.id
 
   return (
@@ -150,7 +150,7 @@ function NetworkBuilderCard({
             {archetype.label}
           </span>
         )}
-        {firstSkill && <p className="text-muted-foreground text-xs mb-1">{firstSkill}</p>}
+        {firstTag && <p className="text-muted-foreground text-xs mb-1">{firstTag}</p>}
         {badge && (
           <span className="mt-2 px-2 py-0.5 bg-primary/20 text-primary text-xs rounded">
             {badge}
@@ -182,7 +182,7 @@ function BuildersSwipeCard({
   const startRef = useRef({ x: 0, y: 0 })
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
   const displayName = builder.handle ? `@${builder.handle}` : "Anonymous"
-  const firstSkill = (builder.skills ?? [])[0] ?? null
+  const firstSkill = (builder.talent_tags ?? [])[0] ?? (builder.skills ?? [])[0] ?? null
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -449,6 +449,52 @@ function BuildersSwipeCard({
                   <div className="flex flex-wrap gap-2">
                     {builder.skills.map((skill, i) => (
                       <span key={i} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {builder.talent_tags && builder.talent_tags.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-display font-bold text-sm text-foreground mb-2">Verified Skills</h4>
+                  <p className="text-[10px] font-mono text-muted-foreground mb-2">via Talent Protocol</p>
+                  <div className="flex flex-wrap gap-2">
+                    {builder.talent_tags.map((tag, i) => (
+                      <span key={i} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs font-mono">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(() => {
+                const fp = (builder as UserProfile).featured_poaps ?? []
+                const featuredPoapItems = (builder.poaps ?? []).filter((p) => fp.includes(p.id))
+                if (featuredPoapItems.length === 0) return null
+                return (
+                  <div className="mb-6">
+                    <h4 className="font-display font-bold text-sm text-foreground mb-2">POAPs</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {featuredPoapItems.map((poap) => (
+                        <div key={poap.id} className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
+                          <img src={poap.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                          <span className="text-xs font-mono text-foreground">{poap.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {(builder as UserProfile).seeking_skills && (builder as UserProfile).seeking_skills.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-display font-bold text-sm text-foreground mb-2">Looking for</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(builder as UserProfile).seeking_skills.map((skill, i) => (
+                      <span key={i} className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-xs font-mono border border-border">
                         {skill}
                       </span>
                     ))}

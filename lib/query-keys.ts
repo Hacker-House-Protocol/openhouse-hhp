@@ -27,4 +27,6 @@ export const queryKeys = {
   eventRequests: "event-requests",
   adminEventRequests: "admin-event-requests",
   escrowState: "escrow-state",
+  wallets: "wallets",
+  gateCheck: "gate-check",
 }

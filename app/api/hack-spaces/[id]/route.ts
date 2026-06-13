@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server"
 import { updateHackSpaceSchema } from "@/lib/schemas/hack-space"
 import { geocodeAndUpdate } from "@/lib/geocode"
 import { isAdmin } from "@/lib/admin"
+import { getGates } from "@/lib/gate-helpers"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -45,11 +46,14 @@ export async function GET(
 
   const allParticipants = [data.creator, ...participants]
 
+  const gates = await getGates("hack_space", id)
+
   const hackSpace = {
     ...data,
     participants: allParticipants,
     member_count: allParticipants.length,
     all_applications: undefined,
+    gates,
   }
 
   return NextResponse.json({ hack_space: hackSpace })

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
+import { getGates } from "@/lib/gate-helpers"
+import { evaluateGates, allGatesPassed } from "@/lib/gate-engine"
+import type { HouseGate } from "@/lib/types"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -55,6 +58,38 @@ export async function POST(
 
   if (existing) {
     return NextResponse.json({ message: "Already a member" }, { status: 409 })
+  }
+
+  // Gate validation (optional — no gates = open to all)
+  const gates = await getGates("community", id)
+  if (gates.length) {
+    const { data: fullUser } = await supabaseServer
+      .from("users")
+      .select("talent_tags, poaps, nfts, human_passport_verified, worldid_verified, worldid_verification_level, chain_activity")
+      .eq("id", user.id)
+      .single()
+
+    if (fullUser) {
+      const results = evaluateGates(
+        {
+          talent_tags: fullUser.talent_tags ?? [],
+          poaps: fullUser.poaps ?? [],
+          nfts: fullUser.nfts ?? [],
+          human_passport_verified: fullUser.human_passport_verified ?? false,
+          worldid_verified: fullUser.worldid_verified ?? false,
+          worldid_verification_level: fullUser.worldid_verification_level ?? null,
+          chain_activity: fullUser.chain_activity ?? {},
+        },
+        gates as HouseGate[],
+      )
+
+      if (!allGatesPassed(results)) {
+        return NextResponse.json(
+          { message: "You don't meet the entry requirements", results },
+          { status: 403 },
+        )
+      }
+    }
   }
 
   const { error } = await supabaseServer.from("community_members").insert({

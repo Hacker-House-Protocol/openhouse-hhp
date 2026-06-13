@@ -16,7 +16,7 @@ export function BuilderCard({
   currentUserId,
 }: BuilderCardProps) {
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
-  const firstSkill = (builder.skills ?? [])[0] ?? null
+  const firstSkill = (builder.talent_tags ?? [])[0] ?? (builder.skills ?? [])[0] ?? null
 
   const displayName = builder.handle
     ? `@${builder.handle}`

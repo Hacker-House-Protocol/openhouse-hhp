@@ -1,12 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useLinkAccount } from "@privy-io/react-auth"
 import { useQueryClient } from "@tanstack/react-query"
+import { Star, X, Plus } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
 import { useImportTalentScore, useImportPoaps } from "@/services/api/integrations"
 import { syncAndGetProfile } from "@/services/api/profile"
+import { usePatchProfile } from "@/services/api/profile"
 import { queryKeys } from "@/lib/query-keys"
 import { PoapCard } from "./poap-card"
 import { ProfileTags } from "./profile-tags"
@@ -23,9 +27,14 @@ export function ProfileOnchain({ profile, isOwner }: ProfileOnchainProps) {
   const [isImporting, setIsImporting] = useState(false)
   const [visiblePoaps, setVisiblePoaps] = useState(POAPS_PAGE_SIZE)
   const [isLinkingWallet, setIsLinkingWallet] = useState(false)
+  const [skillInput, setSkillInput] = useState("")
   const importTalentScore = useImportTalentScore()
   const importPoaps = useImportPoaps()
+  const patchProfile = usePatchProfile()
   const queryClient = useQueryClient()
+
+  const featuredPoaps = profile.featured_poaps ?? []
+  const seekingSkills = profile.seeking_skills ?? []
 
   const { linkWallet } = useLinkAccount({
     onSuccess: async () => {
@@ -50,6 +59,58 @@ export function ProfileOnchain({ profile, isOwner }: ProfileOnchainProps) {
       importPoaps.mutateAsync(undefined),
     ])
     setIsImporting(false)
+  }
+
+  const toggleFeaturedPoap = useCallback(
+    async (poapId: string) => {
+      const isFeatured = featuredPoaps.includes(poapId)
+      const updated = isFeatured
+        ? featuredPoaps.filter((id) => id !== poapId)
+        : [...featuredPoaps, poapId]
+      try {
+        await patchProfile.mutateAsync({ featured_poaps: updated })
+        toast.success(isFeatured ? "POAP hidden from profile" : "POAP featured on profile")
+      } catch {
+        toast.error("Failed to update featured POAPs")
+      }
+    },
+    [featuredPoaps, patchProfile],
+  )
+
+  const addSeekingSkill = useCallback(
+    async (skill: string) => {
+      const trimmed = skill.trim().toLowerCase()
+      if (!trimmed || seekingSkills.includes(trimmed)) return
+      const updated = [...seekingSkills, trimmed]
+      try {
+        await patchProfile.mutateAsync({ seeking_skills: updated })
+      } catch {
+        toast.error("Failed to update skills")
+      }
+    },
+    [seekingSkills, patchProfile],
+  )
+
+  const removeSeekingSkill = useCallback(
+    async (skill: string) => {
+      const updated = seekingSkills.filter((s) => s !== skill)
+      try {
+        await patchProfile.mutateAsync({ seeking_skills: updated })
+      } catch {
+        toast.error("Failed to update skills")
+      }
+    },
+    [seekingSkills, patchProfile],
+  )
+
+  function handleSkillKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault()
+      if (skillInput.trim()) {
+        addSeekingSkill(skillInput)
+        setSkillInput("")
+      }
+    }
   }
 
   return (
@@ -137,11 +198,92 @@ export function ProfileOnchain({ profile, isOwner }: ProfileOnchainProps) {
       {/* Verified Tags */}
       <ProfileTags tags={profile.talent_tags} />
 
+      {/* Seeking Skills — only visible to owner */}
+      {isOwner && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-[0.15em]">
+              Skills I&apos;m looking for
+            </p>
+            <p className="text-[10px] font-mono text-muted-foreground">
+              Match with builders who have these skills
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {seekingSkills.map((skill) => (
+              <Badge
+                key={skill}
+                variant="outline"
+                className="font-mono text-xs gap-1 pr-1"
+              >
+                {skill}
+                <button
+                  type="button"
+                  onClick={() => removeSeekingSkill(skill)}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/20 transition-colors"
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              onKeyDown={handleSkillKeyDown}
+              placeholder="e.g. Solidity, Backend, Design..."
+              className="flex-1 h-8 rounded-lg border bg-transparent px-3 text-xs font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              style={{ borderColor: "var(--border)" }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (skillInput.trim()) {
+                  addSeekingSkill(skillInput)
+                  setSkillInput("")
+                }
+              }}
+              disabled={!skillInput.trim() || patchProfile.isPending}
+              className="rounded-lg font-mono text-xs h-8"
+            >
+              <Plus className="size-3 mr-1" /> Add
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Seeking Skills — read-only for other viewers */}
+      {!isOwner && seekingSkills.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-[0.15em]">
+            Looking for
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {seekingSkills.map((skill) => (
+              <Badge key={skill} variant="outline" className="font-mono text-xs">
+                {skill}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* POAP Gallery */}
       <div className="flex flex-col gap-3">
-        <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-[0.15em]">
-          POAPs — Achievement Wall
-        </p>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-[0.15em]">
+            POAPs — Achievement Wall
+          </p>
+          {isOwner && profile.poaps && profile.poaps.length > 0 && (
+            <p className="text-[10px] font-mono text-muted-foreground">
+              Click the star to feature POAPs on your public profile
+            </p>
+          )}
+        </div>
         {profile.poaps && profile.poaps.length > 0 ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
             {[...profile.poaps]
@@ -150,9 +292,44 @@ export function ProfileOnchain({ profile, isOwner }: ProfileOnchainProps) {
                   new Date(b.event_date).getTime() - new Date(a.event_date).getTime(),
               )
               .slice(0, visiblePoaps)
-              .map((poap) => (
-                <PoapCard key={poap.id} poap={poap} />
-              ))}
+              .map((poap) => {
+                const isFeatured = featuredPoaps.includes(poap.id)
+                return (
+                  <div key={poap.id} className="relative">
+                    <PoapCard poap={poap} />
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => toggleFeaturedPoap(poap.id)}
+                        className="absolute top-1 right-1 p-1 rounded-full transition-all duration-200"
+                        style={{
+                          background: isFeatured
+                            ? "var(--primary)"
+                            : "color-mix(in oklch, var(--muted) 80%, transparent)",
+                        }}
+                        title={isFeatured ? "Remove from featured" : "Feature this POAP"}
+                      >
+                        <Star
+                          className="size-3"
+                          style={{
+                            color: isFeatured ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                          }}
+                          fill={isFeatured ? "currentColor" : "none"}
+                        />
+                      </button>
+                    )}
+                    {!isOwner && isFeatured && (
+                      <div className="absolute top-1 right-1 p-1">
+                        <Star
+                          className="size-3"
+                          style={{ color: "var(--primary)" }}
+                          fill="currentColor"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             {profile.poaps.length > visiblePoaps && (
               <button
                 type="button"

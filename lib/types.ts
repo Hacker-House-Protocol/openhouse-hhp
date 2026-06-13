@@ -86,6 +86,12 @@ export interface UserProfile {
   talent_tags: string[]
   talent_credentials: TalentCredential[]
   poaps: POAP[]
+  seeking_skills: string[]
+  featured_poaps: string[]
+  kernel_address: string | null
+  human_passport_verified: boolean
+  worldid_verified: boolean
+  worldid_verification_level: string | null
   onchain_since: string | null
   created_at: string
   updated_at: string
@@ -148,6 +154,7 @@ export interface HackSpace {
   }
   member_count?: number
   participants?: HackSpaceParticipant[]
+  gates?: HouseGate[]
 }
 
 export interface HackSpaceListParams {
@@ -264,6 +271,7 @@ export interface HackerHouse {
   house_type: 'co_payment' | 'staking' | 'hybrid' | null
   yield_mode: 'none' | 'gmx' | null
   yield_dest: 'host' | 'builders' | null
+  gates?: HouseGate[]
 }
 
 export interface HackerHouseListParams {
@@ -380,6 +388,7 @@ export interface Community {
   verification_requested: boolean
   featured_requested: boolean
   is_worldwide: boolean
+  gates?: HouseGate[]
   created_at: string
 }
 
@@ -482,6 +491,87 @@ export interface EventRequest {
   submitted_by: string | null
   submitter: { id: string; handle: string | null; avatar_url: string | null } | null
   created_at: string
+}
+
+/* ── Gates & Multi-Wallet ── */
+
+export type GateType =
+  | "talent_skills"
+  | "poap"
+  | "nft"
+  | "human_passport"
+  | "world_id"
+  | "blockchain_activity"
+
+export interface TalentSkillsGateConfig {
+  required_skills: string[]
+  min_count: number
+}
+
+export interface PoapGateConfig {
+  mode: "count" | "specific"
+  min_count?: number
+  event_ids?: string[]
+}
+
+export interface NftGateConfig {
+  contracts: { address: string; chain_id: number; name: string }[]
+}
+
+export interface HumanPassportGateConfig {
+  required: true
+}
+
+export interface WorldIdGateConfig {
+  verification_level: "device" | "orb"
+}
+
+export interface BlockchainActivityGateConfig {
+  min_tx_count?: number
+  chains?: number[]
+  min_age_days?: number
+}
+
+export type GateConfig =
+  | TalentSkillsGateConfig
+  | PoapGateConfig
+  | NftGateConfig
+  | HumanPassportGateConfig
+  | WorldIdGateConfig
+  | BlockchainActivityGateConfig
+
+export interface HouseGate {
+  id: string
+  hacker_house_id: string
+  gate_type: GateType
+  config: GateConfig
+  created_at: string
+}
+
+export interface GateCheckResult {
+  gate_type: GateType
+  passed: boolean
+  /** Generic reason — never reveals user data */
+  reason: string
+}
+
+export interface UserWallet {
+  id: string
+  user_id: string
+  wallet_address: string
+  label: string | null
+  is_primary: boolean
+  created_at: string
+}
+
+export interface ProfileVisibility {
+  user_id: string
+  show_socials: boolean
+  show_email: boolean
+  show_city: boolean
+  show_bio: boolean
+  show_nfts: boolean
+  show_chain_activity: boolean
 }
 
 /* ── Admin ── */

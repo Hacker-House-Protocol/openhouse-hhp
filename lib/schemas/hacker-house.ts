@@ -10,6 +10,54 @@ const HOUSE_TYPES = ["co_payment", "staking", "hybrid"] as const
 const YIELD_MODES = ["none", "gmx"] as const
 const YIELD_DESTS = ["host", "builders"] as const
 
+// ── Gate schemas ──────────────────────────────────────────────────────────
+const GATE_TYPES = ["talent_skills", "poap", "nft", "human_passport", "world_id", "blockchain_activity"] as const
+
+const talentSkillsConfigSchema = z.object({
+  required_skills: z.array(z.string()).min(1),
+  min_count: z.number().int().min(1).default(1),
+})
+
+const poapConfigSchema = z.object({
+  mode: z.enum(["count", "specific"]),
+  min_count: z.number().int().min(1).optional(),
+  event_ids: z.array(z.string()).optional(),
+})
+
+const nftConfigSchema = z.object({
+  contracts: z.array(z.object({
+    address: z.string(),
+    chain_id: z.number().int(),
+    name: z.string(),
+  })).min(1),
+})
+
+const humanPassportConfigSchema = z.object({
+  required: z.literal(true),
+})
+
+const worldIdConfigSchema = z.object({
+  verification_level: z.enum(["device", "orb"]),
+})
+
+const blockchainActivityConfigSchema = z.object({
+  min_tx_count: z.number().int().min(1).optional(),
+  chains: z.array(z.number().int()).optional(),
+  min_age_days: z.number().int().min(1).optional(),
+})
+
+export const gateSchema = z.object({
+  gate_type: z.enum(GATE_TYPES),
+  config: z.union([
+    talentSkillsConfigSchema,
+    poapConfigSchema,
+    nftConfigSchema,
+    humanPassportConfigSchema,
+    worldIdConfigSchema,
+    blockchainActivityConfigSchema,
+  ]),
+})
+
 export const createHackerHouseSchema = z.object({
   name: z.string().min(3, "Minimum 3 characters").max(80),
   modality: z.enum(HOUSE_MODALITIES, { required_error: "Select a modality" }),
@@ -57,6 +105,7 @@ export const createHackerHouseSchema = z.object({
   event_start_date: z.string().optional(),
   event_end_date: z.string().optional(),
   event_timing: z.array(z.enum(EVENT_TIMINGS)).optional(),
+  gates: z.array(gateSchema).optional(),
 })
 
 const _baseSchema = createHackerHouseSchema
@@ -90,4 +139,6 @@ export const reviewHackerHouseApplicationSchema = z.object({
 
 export type ReviewHackerHouseApplicationInput = z.infer<typeof reviewHackerHouseApplicationSchema>
 
-export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES, CONTRACT_TYPES, HOUSE_TYPES, YIELD_MODES, YIELD_DESTS }
+export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES, CONTRACT_TYPES, HOUSE_TYPES, YIELD_MODES, YIELD_DESTS, GATE_TYPES }
+
+export type GateInput = z.infer<typeof gateSchema>

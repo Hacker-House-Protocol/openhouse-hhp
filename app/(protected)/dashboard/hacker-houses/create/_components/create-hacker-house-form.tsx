@@ -1,11 +1,11 @@
 "use client"
 
 import { Fragment, useEffect, useRef, useState } from "react"
-import { useForm, useWatch, Controller, type Control, type UseFormSetValue } from "react-hook-form"
+import { useForm, useWatch, useFieldArray, Controller, type Control, type UseFormSetValue } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { X, MapPin, Lock, Check, Wallet } from "lucide-react"
+import { X, MapPin, Lock, Check, Wallet, Shield, Plus, Trash2 } from "lucide-react"
 import { ARCHETYPES, LANGUAGES } from "@/lib/onboarding"
 import { useEvents } from "@/services/api/events"
 import {
@@ -79,6 +79,15 @@ const AMENITY_OPTIONS: { key: keyof CreateHackerHouseInput; label: string; descr
   { key: "includes_meals", label: "Meals included", description: "Breakfast, lunch or dinner" },
   { key: "includes_workspace", label: "Workspace", description: "Dedicated desk/co-working area" },
   { key: "includes_internet", label: "Internet", description: "High-speed WiFi included" },
+]
+
+const GATE_TYPE_OPTIONS: { value: string; title: string; description: string; available: boolean }[] = [
+  { value: "talent_skills", title: "Talent Skills", description: "Require verified skills from Talent Protocol", available: true },
+  { value: "poap", title: "POAPs", description: "Require POAP attendance proof", available: true },
+  { value: "human_passport", title: "Human Passport", description: "Require human verification", available: false },
+  { value: "world_id", title: "World ID", description: "Require World ID verification", available: false },
+  { value: "nft", title: "NFT Ownership", description: "Require specific NFT holdings", available: false },
+  { value: "blockchain_activity", title: "Blockchain Activity", description: "Require on-chain history", available: false },
 ]
 
 const STEPS = ["House", "Amenities", "Community", "Access", "Payment", "Check-in"] as const
@@ -329,8 +338,14 @@ export function CreateHackerHouseForm({
       house_type: "co_payment",
       yield_mode: "none",
       yield_dest: "host",
+      gates: [],
       ...defaultValues,
     },
+  })
+
+  const { fields: gateFields, append: appendGate, remove: removeGate } = useFieldArray({
+    control,
+    name: "gates",
   })
 
   const hasEvent = useWatch({ control, name: "has_event" })
@@ -1490,6 +1505,147 @@ export function CreateHackerHouseForm({
                 </Field>
               )}
             />
+
+            {/* ── GATES ── */}
+            <div className="border-t border-border pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-display font-bold text-foreground text-base flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary" />
+                    Entry requirements
+                  </h3>
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    Set gates builders must pass to apply. All are verified server-side — only pass/fail is shown.
+                  </p>
+                </div>
+              </div>
+
+              {gateFields.map((gateField, index) => {
+                const gateType = gateField.gate_type
+
+                return (
+                  <div
+                    key={gateField.id}
+                    className="flex flex-col gap-3 p-4 rounded-lg border border-primary/20 bg-primary/5 mb-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">
+                        {GATE_TYPE_OPTIONS.find((g) => g.value === gateType)?.title ?? gateType}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeGate(index)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Talent Skills config */}
+                    {gateType === "talent_skills" && (
+                      <Field>
+                        <FieldLabel>Required skills</FieldLabel>
+                        <FieldDescription>
+                          Enter skills separated by comma (e.g. Solidity, React, Rust)
+                        </FieldDescription>
+                        <Controller
+                          name={`gates.${index}.config.required_skills`}
+                          control={control}
+                          render={({ field }) => (
+                            <Input
+                              value={(field.value as string[] | undefined)?.join(", ") ?? ""}
+                              onChange={(e) => {
+                                const skills = e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean)
+                                field.onChange(skills)
+                              }}
+                              placeholder="Solidity, React, Rust"
+                            />
+                          )}
+                        />
+                      </Field>
+                    )}
+
+                    {/* POAP config */}
+                    {gateType === "poap" && (
+                      <Field>
+                        <FieldLabel>Minimum POAPs</FieldLabel>
+                        <FieldDescription>
+                          How many POAPs must the builder have?
+                        </FieldDescription>
+                        <Controller
+                          name={`gates.${index}.config.min_count`}
+                          control={control}
+                          render={({ field }) => (
+                            <Input
+                              type="number"
+                              min={1}
+                              value={field.value as number ?? 1}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                              placeholder="3"
+                            />
+                          )}
+                        />
+                      </Field>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Add gate buttons */}
+              <div className="flex flex-wrap gap-2">
+                {GATE_TYPE_OPTIONS.map((gate) => {
+                  const alreadyAdded = gateFields.some((g) => g.gate_type === gate.value)
+                  return (
+                    <button
+                      key={gate.value}
+                      type="button"
+                      disabled={!gate.available || alreadyAdded}
+                      onClick={() => {
+                        if (gate.value === "talent_skills") {
+                          appendGate({
+                            gate_type: "talent_skills",
+                            config: { required_skills: [], min_count: 1 },
+                          })
+                        } else if (gate.value === "poap") {
+                          appendGate({
+                            gate_type: "poap",
+                            config: { mode: "count", min_count: 3 },
+                          })
+                        } else if (gate.value === "human_passport") {
+                          appendGate({
+                            gate_type: "human_passport",
+                            config: { required: true },
+                          })
+                        } else if (gate.value === "world_id") {
+                          appendGate({
+                            gate_type: "world_id",
+                            config: { verification_level: "device" },
+                          })
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-mono transition-all",
+                        alreadyAdded
+                          ? "border-primary/30 text-primary/50 bg-primary/5 cursor-not-allowed"
+                          : !gate.available
+                            ? "border-muted-foreground/15 text-muted-foreground/50 cursor-not-allowed"
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground cursor-pointer",
+                      )}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {gate.title}
+                      {!gate.available && (
+                        <span className="text-[10px] px-1 py-0.5 rounded-full bg-strategist/20 text-strategist">Soon</span>
+                      )}
+                      {alreadyAdded && <Check className="w-3 h-3 text-primary" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </SectionCard>
         )}
 

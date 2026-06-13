@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ARCHETYPE_IDS } from "@/lib/onboarding"
+import { gateSchema } from "./hacker-house"
 
 const TRACKS = ["DeFi", "DAO tools", "AI", "Social", "Gaming", "NFTs", "Infrastructure", "Other"] as const
 const STAGES = ["idea", "prototype", "in_development"] as const
@@ -34,6 +35,7 @@ export const createHackSpaceSchema = z.object({
   event_start_date: z.string().optional(),
   event_end_date: z.string().optional(),
   event_timing: z.array(z.enum(EVENT_TIMINGS)).min(1).optional(),
+  gates: z.array(gateSchema).optional(),
 })
 
 export type CreateHackSpaceInput = z.infer<typeof createHackSpaceSchema>

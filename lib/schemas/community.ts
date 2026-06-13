@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { gateSchema } from "./hacker-house"
 
 export const COMMUNITY_CATEGORIES = [
   "DeFi",
@@ -24,6 +25,7 @@ export const createCommunitySchema = z.object({
   featured_requested: z.boolean().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
+  gates: z.array(gateSchema).optional(),
 })
 
 export type CreateCommunityInput = z.infer<typeof createCommunitySchema>

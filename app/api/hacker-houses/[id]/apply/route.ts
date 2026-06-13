@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
 import { applyToHackerHouseSchema } from "@/lib/schemas/hacker-house"
+import { evaluateGates, allGatesPassed } from "@/lib/gate-engine"
+import type { HouseGate } from "@/lib/types"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -47,6 +49,45 @@ export async function POST(
 
   if (hackerHouse.status !== "open") {
     return NextResponse.json({ message: "This Hacker House is not accepting applications" }, { status: 400 })
+  }
+
+  // ── Gate validation ──────────────────────────────────────────────────
+  const { data: gates } = await supabaseServer
+    .from("gates")
+    .select("*")
+    .eq("entity_type", "hacker_house")
+    .eq("entity_id", hackerHouseId)
+
+  if (gates?.length) {
+    // Fetch full user data for gate evaluation
+    const { data: fullUser } = await supabaseServer
+      .from("users")
+      .select("talent_tags, poaps, nfts, human_passport_verified, worldid_verified, worldid_verification_level, chain_activity")
+      .eq("id", user.id)
+      .single()
+
+    if (fullUser) {
+      const results = evaluateGates(
+        {
+          talent_tags: fullUser.talent_tags ?? [],
+          poaps: fullUser.poaps ?? [],
+          nfts: fullUser.nfts ?? [],
+          human_passport_verified: fullUser.human_passport_verified ?? false,
+          worldid_verified: fullUser.worldid_verified ?? false,
+          worldid_verification_level: fullUser.worldid_verification_level ?? null,
+          chain_activity: fullUser.chain_activity ?? {},
+        },
+        gates as HouseGate[],
+      )
+
+      if (!allGatesPassed(results)) {
+        const failed = results.filter((r) => !r.passed)
+        return NextResponse.json(
+          { message: "You don't meet the requirements for this house", gates: failed },
+          { status: 403 },
+        )
+      }
+    }
   }
 
   const body: unknown = await req.json()

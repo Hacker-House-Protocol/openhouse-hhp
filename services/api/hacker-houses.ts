@@ -11,6 +11,7 @@ import type {
   Application,
   ApplicationWithApplicant,
   Homie,
+  GateCheckResult,
 } from "@/lib/types"
 import type {
   CreateHackerHouseInput,
@@ -253,4 +254,18 @@ export const useUploadHackerHouseImage = () =>
       formData.append("file", file)
       return genericAuthRequest<{ image_url: string }>("post", "/api/hacker-houses/upload-image", formData)
     },
+  })
+
+interface GateCheckResponse {
+  qualified: boolean
+  results: GateCheckResult[]
+}
+
+export const useGateCheck = (id: string, enabled = true) =>
+  useAppQuery<GateCheckResponse>({
+    fetcher: async () => {
+      return genericAuthRequest<GateCheckResponse>("get", `/api/hacker-houses/${id}/gates/check`)
+    },
+    queryKey: [queryKeys.gateCheck, id],
+    enabled,
   })

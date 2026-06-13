@@ -102,7 +102,7 @@ export default function CreateHackerHousePage() {
           houseType: HOUSE_TYPE_MAP[values.house_type ?? "co_payment"],
           yieldMode: YIELD_MODE_MAP[values.yield_mode ?? "none"],
           yieldDest: YIELD_DEST_MAP[values.yield_dest ?? "host"],
-          houseName: values.title || "Hacker House",
+          houseName: values.name || "Hacker House",
           client,
         })
 

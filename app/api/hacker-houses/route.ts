@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { has_event, ...fields } = parsed.data
+  const { has_event, gates, ...fields } = parsed.data
 
   const insertData = {
     creator_id: user.id,
@@ -200,6 +200,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Database error" }, { status: 500 })
   }
 
+  // Insert gates if provided
+  if (gates?.length) {
+    const gateRows = gates.map((g) => ({
+      entity_type: "hacker_house" as const,
+      entity_id: data.id,
+      gate_type: g.gate_type,
+      config: g.config,
+    }))
+    const { error: gatesError } = await supabaseServer
+      .from("gates")
+      .insert(gateRows)
+
+    if (gatesError) {
+      console.error("[POST /api/hacker-houses] gates insert", gatesError)
+    }
+  }
+
   if (!fields.lat || !fields.lng) {
     geocodeAndUpdate("hacker_houses", data.id, fields.city, fields.country, fields.address || undefined)
   }
@@ -208,6 +225,7 @@ export async function POST(req: NextRequest) {
     ...data,
     participants: [],
     participants_count: 1,
+    gates: gates ?? [],
   }
 
   return NextResponse.json({ hacker_house: hackerHouse }, { status: 201 })

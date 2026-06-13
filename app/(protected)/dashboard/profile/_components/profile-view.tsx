@@ -8,6 +8,7 @@ import { ProfileSkills } from "./profile-skills"
 import { ProfileLocation } from "./profile-location"
 import { ProfileLinks } from "./profile-links"
 import { ProfileOnchain } from "./profile-onchain"
+import { ProfileWallets } from "./profile-wallets"
 import { ProfileActivity } from "./profile-activity"
 import { ProfileEditForm } from "./profile-edit-form"
 import { ConnectButton } from "../../_components/connect-button"
@@ -103,6 +104,14 @@ export function ProfileView({ profile, isOwner }: ProfileViewProps) {
             <ProfileOnchain profile={profile} isOwner={isOwner} />
           </CardContent>
         </Card>
+
+        {isOwner && (
+          <Card>
+            <CardContent>
+              <ProfileWallets profile={profile} isOwner={isOwner} />
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent>

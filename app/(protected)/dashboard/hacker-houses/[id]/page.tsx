@@ -12,6 +12,7 @@ import {
   useHackerHouseHomies,
   useInviteStatus,
   useRevokeHackerHouseInvite,
+  useGateCheck,
 } from "@/services/api/hacker-houses"
 import { useProfile } from "@/services/api/profile"
 import { useKernelWallet } from "@/hooks/use-kernel-wallet"
@@ -212,6 +213,10 @@ export default function HackerHouseDetailPage({
   const isOwnerEarly = profile?.id != null && profile.id === hackerHouse?.creator?.id
   const { data: inviteStatus } = useInviteStatus(id, isInviteOnly === true && !isOwnerEarly)
 
+  // Gate check — only when house has gates and user is not the owner
+  const hasGates = (hackerHouse?.gates?.length ?? 0) > 0
+  const { data: gateCheck } = useGateCheck(id, hasGates && !isOwnerEarly)
+
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showGallery, setShowGallery] = useState(false)
   const [showApplyForm, setShowApplyForm] = useState(false)
@@ -291,7 +296,8 @@ export default function HackerHouseDetailPage({
   const modeCfg = MODE_CONFIG[hackerHouse.modality] ?? MODE_CONFIG.paid
   const statusCfg = STATUS_CONFIG[hackerHouse.status as HouseStatus] ?? STATUS_CONFIG.open
   const isInvited = isOwner || !isInviteOnly || inviteStatus?.invited === true
-  const canApply = !isOwner && hackerHouse.status === "open"
+  const gatesBlocking = hasGates && gateCheck != null && !gateCheck.qualified
+  const canApply = !isOwner && hackerHouse.status === "open" && !gatesBlocking
   const allParticipants = [hackerHouse.creator, ...(hackerHouse.participants ?? [])].filter(
     (p, i, arr) => arr.findIndex((x) => x.id === p.id) === i,
   )
@@ -882,6 +888,77 @@ export default function HackerHouseDetailPage({
                     {profile}
                   </span>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Entry Requirements (Gates) ── */}
+          {hasGates && (
+            <section className="mb-8">
+              <h2 className="font-display font-bold text-lg text-foreground mb-4 flex items-center gap-2">
+                <Shield className="size-4 text-primary" />
+                Entry Requirements
+              </h2>
+              <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
+                {hackerHouse.gates!.map((gate) => {
+                  const checkResult = gateCheck?.results?.find((r) => r.gate_type === gate.gate_type)
+                  const passed = checkResult?.passed
+                  const gateLabels: Record<string, string> = {
+                    talent_skills: "Verified Skills",
+                    poap: "POAP Attendance",
+                    nft: "NFT Ownership",
+                    human_passport: "Human Passport",
+                    world_id: "World ID",
+                    blockchain_activity: "Blockchain Activity",
+                  }
+
+                  return (
+                    <div key={gate.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "size-8 rounded-full flex items-center justify-center shrink-0",
+                          passed === true
+                            ? "bg-[#6EE76E]/20"
+                            : passed === false
+                              ? "bg-destructive/20"
+                              : "bg-muted",
+                        )}>
+                          {passed === true ? (
+                            <Check className="size-4 text-[#6EE76E]" />
+                          ) : passed === false ? (
+                            <X className="size-4 text-destructive" />
+                          ) : (
+                            <Shield className="size-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {gateLabels[gate.gate_type] ?? gate.gate_type}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {checkResult?.reason ?? "Checking..."}
+                          </p>
+                        </div>
+                      </div>
+                      {passed !== undefined && (
+                        <span className={cn(
+                          "text-xs font-mono px-2 py-0.5 rounded-full",
+                          passed ? "bg-[#6EE76E]/10 text-[#6EE76E]" : "bg-destructive/10 text-destructive",
+                        )}>
+                          {passed ? "Qualified" : "Required"}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {gateCheck && !gateCheck.qualified && !isOwner && (
+                  <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-xs text-destructive font-mono">
+                      You don&apos;t meet all requirements to apply. Complete the missing verifications in your profile.
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
           )}

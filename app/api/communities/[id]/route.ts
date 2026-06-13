@@ -3,6 +3,7 @@ import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
 import { isAdmin } from "@/lib/admin"
 import { geocodeAndUpdate } from "@/lib/geocode"
+import { getGates } from "@/lib/gate-helpers"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -57,8 +58,10 @@ export async function GET(
     }
   }
 
+  const gates = await getGates("community", id)
+
   return NextResponse.json({
-    community: { ...data, member_count: count ?? 0, is_member: isMember },
+    community: { ...data, member_count: count ?? 0, is_member: isMember, gates },
   })
 }
 
