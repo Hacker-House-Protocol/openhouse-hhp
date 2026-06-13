@@ -18,14 +18,14 @@ Users never interact with Layer 2 or 3 directly. The platform abstracts all comp
 
 ---
 
-## Address Map (Example: user "dex" with MetaMask login)
+## Address Map (Example: user with MetaMask login)
 
 | Address | Type | Role | On-chain activity |
 |---|---|---|---|
-| `0xd7ed1a1FC1295A0e7Ac16b5834F152F7B6306C0e` | EOA (MetaMask) | Authentication only. Signs a Privy auth message during login. Never touches the blockchain after that. | None |
-| `0x8D075aa7183b0cFaEDa4Dcab3534B04911Bb853D` | EOA (Privy Embedded) | Signer for the Kernel smart account. Signs UserOperations off-chain. Created automatically by Privy in the browser. | None (signs off-chain only) |
-| `0x40c8aEc37E7908f72321Ec43816d0789A60dC700` | Smart Account (ZeroDev Kernel) | Executes all on-chain operations: mint, approve, deposit. Holds USDC and SpotNFTs. Address is deterministically derived from the Embedded wallet. | All on-chain activity |
-| `0x521A3d77b3B8C95F24783e47E2b75651c47d3B03` | Smart Contract (HackerHouseEscrow) | Escrow contract for a specific Hacker House. Receives USDC deposits and mints SpotNFTs. | Receives deposits, mints NFTs |
+| `0xAAAA...your_metamask_EOA` | EOA (MetaMask) | Authentication only. Signs a Privy auth message during login. Never touches the blockchain after that. | None |
+| `0xBBBB...privy_embedded_EOA` | EOA (Privy Embedded) | Signer for the Kernel smart account. Signs UserOperations off-chain. Created automatically by Privy in the browser. | None (signs off-chain only) |
+| `0xCCCC...kernel_smart_account` | Smart Account (ZeroDev Kernel) | Executes all on-chain operations: mint, approve, deposit. Holds USDC and SpotNFTs. Address is deterministically derived from the Embedded wallet. | All on-chain activity |
+| `0xDDDD...escrow_contract` | Smart Contract (HackerHouseEscrow) | Escrow contract for a specific Hacker House. Receives USDC deposits and mints SpotNFTs. | Receives deposits, mints NFTs |
 
 ### Key relationships
 
@@ -44,9 +44,9 @@ Users never interact with Layer 2 or 3 directly. The platform abstracts all comp
 User clicks "Login with MetaMask"
     │
     ├─ Privy opens MetaMask
-    ├─ MetaMask (0xd7ed...6C0e) signs an authentication message
+    ├─ MetaMask (0xAAAA...your_EOA) signs an authentication message
     ├─ Privy validates the signature and creates a session
-    ├─ Privy generates an Embedded Wallet (0x8D07...853D) in the browser
+    ├─ Privy generates an Embedded Wallet (0xBBBB...embedded) in the browser
     │   └─ This wallet is invisible to the user
     │   └─ Private key is managed by Privy's infrastructure
     │   └─ Persists across sessions for the same user
@@ -68,7 +68,7 @@ useKernelWallet.connect() executes:
     │
     ├─ Creates a viem WalletClient with the Embedded as account
     │   walletClient = createWalletClient({
-    │     account: 0x8D075aa7183b0cFaEDa4Dcab3534B04911Bb853D,
+    │     account: 0xBBBB...privy_embedded_EOA,
     │     chain: arbitrumSepolia,
     │     transport: custom(privyProvider),
     │   })
@@ -80,7 +80,7 @@ useKernelWallet.connect() executes:
     │       - Bundler URL (ZeroDev's bundler endpoint)
     │
     ├─ getKernelAddress(walletClient)
-    │   └─ Computes the deterministic address: 0x40c8aEc37E7908f72321Ec43816d0789A60dC700
+    │   └─ Computes the deterministic address: 0xCCCC...kernel_smart_account
     │   └─ This is a counterfactual address — the smart contract may not be deployed yet
     │   └─ It gets deployed automatically on the first transaction
     │
@@ -99,14 +99,14 @@ handleMint() executes:
     ├─ Builds a UserOperation:
     │   {
     │     target: MockUSDC contract address,
-    │     callData: mint(0x40c8aEc37E7908f72321Ec43816d0789A60dC700, 10000000),
+    │     callData: mint(0xCCCC...kernel_smart_account, 10000000),
     │     // 10000000 = 10 USDC (6 decimals)
     │     // Mints TO the Kernel address, not to MetaMask or Embedded
     │   }
     │
-    ├─ Embedded (0x8D07...853D) signs the UserOperation off-chain
+    ├─ Embedded (0xBBBB...embedded) signs the UserOperation off-chain
     │   └─ Generates UserOperation hash:
-    │      0xacfbb63ffd5ad0d69053505ed047ce011bc9fc88266e85760792aba4928c1c81
+    │      0xabcd...userop_hash_mint
     │   └─ This hash is displayed to the user in the UI
     │
     ├─ Signed UserOp is sent to ZeroDev Bundler (not directly to the blockchain)
@@ -121,11 +121,11 @@ handleMint() executes:
     │   ├─ EntryPoint contract receives the transaction
     │   ├─ Verifies the Embedded's signature against the Kernel's ECDSA validator
     │   ├─ If Kernel is not yet deployed → deploys it (first tx only)
-    │   ├─ Kernel calls MockUSDC.mint(0x40c8aEc..., 10000000)
+    │   ├─ Kernel calls MockUSDC.mint(0xCCCC...kernel, 10000000)
     │   └─ 10 USDC appear in the Kernel's balance
     │
     └─ Result visible at:
-       https://sepolia.arbiscan.io/address/0x40c8aEc37E7908f72321Ec43816d0789A60dC700#tokentxns
+       https://sepolia.arbiscan.io/address/0xCCCC...kernel_smart_account#tokentxns
 ```
 
 ### Step 4 — Deposit (Pay My Share)
@@ -140,21 +140,21 @@ handleDeposit() executes:
     │   Call 1 — Approve:
     │   {
     │     target: MockUSDC contract,
-    │     callData: approve(0x521A3d77b3B8C95F24783e47E2b75651c47d3B03, 10000000),
+    │     callData: approve(0xDDDD...escrow_contract, 10000000),
     │     // Kernel authorizes the Escrow contract to spend 10 USDC
     │   }
     │
     │   Call 2 — Deposit:
     │   {
-    │     target: 0x521A3d77b3B8C95F24783e47E2b75651c47d3B03 (Escrow),
+    │     target: 0xDDDD...escrow_contract (Escrow),
     │     callData: deposit(bookingId),
     │     // Escrow pulls 10 USDC from the Kernel via transferFrom()
     │     // Escrow mints a SpotNFT to the Kernel
     │   }
     │
-    ├─ Embedded (0x8D07...853D) signs the batch UserOperation off-chain
+    ├─ Embedded (0xBBBB...embedded) signs the batch UserOperation off-chain
     │   └─ Generates UserOperation hash:
-    │      0x13ed450fdc611fa1e11268768ef3eb3de8af8f8b9023b6b85a68c7d85b8fdf97
+    │      0xef01...userop_hash_deposit
     │
     ├─ Signed UserOp → Bundler → Paymaster pays gas → tx sent to Arbitrum Sepolia
     │
@@ -166,9 +166,9 @@ handleDeposit() executes:
     │   └─ Escrow updates storage: hasDeposited[Kernel] = true, deposits[Kernel] = 10000000
     │
     └─ Results visible at:
-       Token txs:  https://sepolia.arbiscan.io/address/0x40c8aEc37E7908f72321Ec43816d0789A60dC700#tokentxns
-       NFT txs:    https://sepolia.arbiscan.io/address/0x40c8aEc37E7908f72321Ec43816d0789A60dC700#nfttransfers
-       Escrow:     https://sepolia.arbiscan.io/address/0x521A3d77b3B8C95F24783e47E2b75651c47d3B03
+       Token txs:  https://sepolia.arbiscan.io/address/0xCCCC...kernel_smart_account#tokentxns
+       NFT txs:    https://sepolia.arbiscan.io/address/0xCCCC...kernel_smart_account#nfttransfers
+       Escrow:     https://sepolia.arbiscan.io/address/0xDDDD...escrow_contract
 ```
 
 ---
@@ -177,7 +177,7 @@ handleDeposit() executes:
 
 | Type | Example | Where to find |
 |---|---|---|
-| UserOperation hash | `0xacfbb63ffd5ad0d69053505ed047ce011bc9fc88266e85760792aba4928c1c81` | Displayed in the HHP UI after signing. Internal to ERC-4337. **Cannot be searched directly on Arbiscan.** |
+| UserOperation hash | `0xabcd...userop_hash_mint` | Displayed in the HHP UI after signing. Internal to ERC-4337. **Cannot be searched directly on Arbiscan.** |
 | Transaction hash | Generated by the Bundler | Visible on Arbiscan under the Kernel address. This is the real Ethereum tx that the Bundler submitted. |
 
 The UserOp hash is the identifier the user sees. The actual tx hash is what appears on Arbiscan. They are different hashes for the same logical operation.
@@ -213,13 +213,13 @@ The three-layer architecture provides **on-chain privacy by default**:
 
 ```
 Public knowledge (on-chain):
-  - Kernel 0x40c8aEc... deposited 10 USDC into Escrow 0x521A...
-  - Kernel 0x40c8aEc... received SpotNFT #X
+  - Kernel 0xCCCC...kernel deposited 10 USDC into Escrow 0xDDDD...
+  - Kernel 0xCCCC...kernel received SpotNFT #X
 
 NOT linkable on-chain:
-  - Who owns 0x40c8aEc... (no ENS, no tx history, fresh address)
-  - That 0xd7ed... (dex's MetaMask with ENS, tokens, history) is behind it
-  - That 0x8D07... (Privy Embedded) is the signer
+  - Who owns 0xCCCC...kernel (no ENS, no tx history, fresh address)
+  - That 0xAAAA... (user's MetaMask with ENS, tokens, history) is behind it
+  - That 0xBBBB... (Privy Embedded) is the signer
 
 Connection only exists in:
   - Privy's auth session (off-chain, encrypted)
