@@ -80,7 +80,15 @@ export default function CreateHackerHousePage() {
             : (kernelAddr as `0x${string}`)
 
         const depositUsdc = values.deposit_amount_usdc ?? values.price_per_person ?? 0
-        const withdrawTs = values.withdraw_date ? Math.floor(new Date(values.withdraw_date).getTime() / 1000) : 0
+        // Parse date and set to end-of-day UTC to avoid timezone edge cases
+        // e.g. "2026-06-13" → June 13 23:59:59 UTC (always in the future if user picked tomorrow)
+        let withdrawTs = 0
+        if (values.withdraw_date) {
+          const d = new Date(values.withdraw_date)
+          d.setUTCHours(23, 59, 59, 0)
+          withdrawTs = Math.floor(d.getTime() / 1000)
+        }
+        console.log("[CreateHouse] withdrawDate:", values.withdraw_date, "→ ts:", withdrawTs, "now:", Math.floor(Date.now() / 1000))
         if (!depositUsdc || !withdrawTs) {
           throw new Error("Missing deposit amount or withdraw date")
         }
