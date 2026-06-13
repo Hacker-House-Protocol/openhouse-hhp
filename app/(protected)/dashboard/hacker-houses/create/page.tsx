@@ -96,7 +96,7 @@ export default function CreateHackerHousePage() {
           client,
         })
 
-        if (!txHash) throw new Error("Transaction failed — no hash returned")
+        if (!txHash) throw new Error("Transaction failed — no hash returned. Check console for details.")
 
         if (client) {
           // Wait for the UserOperation to be included in a block

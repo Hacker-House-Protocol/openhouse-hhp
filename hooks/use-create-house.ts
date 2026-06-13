@@ -120,6 +120,7 @@ export function useCreateHouse() {
       setCreateState({ status: "loading" })
 
       try {
+        console.log("[CreateHouse] sending UserOperation via kernel client...")
         const txHash = await activeClient.sendUserOperation({
           calls: [
             {
@@ -143,11 +144,14 @@ export function useCreateHouse() {
           ],
         })
 
+        console.log("[CreateHouse] UserOperation hash:", txHash)
         setCreateState({ status: "success", txHash })
         return txHash
       } catch (err) {
+        console.error("[CreateHouse] sendUserOperation failed:", err)
         const message = err instanceof Error ? err.message : "House creation failed"
         setCreateState({ status: "error", error: message })
+        throw err // re-throw so caller gets the real error
       }
     },
     [kernelClient, isReady],
