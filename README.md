@@ -116,8 +116,8 @@ Your Hacker House confirmation is a **Booking NFT on Arbitrum** — with dates, 
 
 | Contract | Address | Arbiscan |
 |---|---|---|
-| **HackerHouseFactory** | `0x318a6205B49188e00a5306e30843A271156Ca8a7` | [View](https://sepolia.arbiscan.io/address/0x318a6205B49188e00a5306e30843A271156Ca8a7) |
-| **MockUSDC** | `0x70705F3665A4134C5E82B0114887BA82bbFf1c92` | [View](https://sepolia.arbiscan.io/address/0x70705F3665A4134C5E82B0114887BA82bbFf1c92) |
+| **HackerHouseFactory** | `0x6E75e399E9867Cdd902Be043B7870dffB9dB3d3b` | [View](https://sepolia.arbiscan.io/address/0x6E75e399E9867Cdd902Be043B7870dffB9dB3d3b) |
+| **MockUSDC** | `0xaB5a79ad8BaA31Faa18c74Ec794433Ce00e59b45` | [View](https://sepolia.arbiscan.io/address/0xaB5a79ad8BaA31Faa18c74Ec794433Ce00e59b45) |
 
 The contract replaces blind trust in the organizer with a trustless, automatic escrow:
 
