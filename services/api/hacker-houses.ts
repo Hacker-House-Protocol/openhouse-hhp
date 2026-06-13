@@ -185,6 +185,34 @@ export const useReviewHackerHouseApplication = (id: string) => {
   })
 }
 
+export const useInviteStatus = (id: string, enabled = true) =>
+  useAppQuery<{ invited: boolean }>({
+    fetcher: async () => {
+      return genericAuthRequest<{ invited: boolean }>("get", `/api/hacker-houses/${id}/invite-status`)
+    },
+    queryKey: [queryKeys.hackerHouse, id, "invite-status"],
+    enabled,
+  })
+
+export const useInviteToHackerHouse = (id: string) => {
+  const queryClient = useQueryClient()
+  return useAppMutation<{ builder_id: string }, { invited: boolean }>({
+    fetcher: async (input) => {
+      return genericAuthRequest<{ invited: boolean }>(
+        "post",
+        `/api/hacker-houses/${id}/invite`,
+        input,
+      )
+    },
+    options: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [queryKeys.notifications] })
+        queryClient.invalidateQueries({ queryKey: [queryKeys.unreadNotificationCount] })
+      },
+    },
+  })
+}
+
 export const useUploadHackerHouseImage = () =>
   useAppMutation<File, { image_url: string }>({
     fetcher: async (file: File) => {

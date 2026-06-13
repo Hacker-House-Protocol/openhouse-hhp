@@ -38,37 +38,34 @@ export function useKernelWallet() {
     try {
       // 1. Try embedded wallet first (email/social login users)
       let wallet = getEmbeddedConnectedWallet(wallets)
-      console.log("[KernelWallet] wallets count:", wallets.length, "embedded:", !!wallet)
-      console.log("[KernelWallet] wallet types:", wallets.map(w => `${w.walletClientType}:${w.address?.slice(0, 8)}`))
 
-      // 2. Fall back to any connected wallet (MetaMask, etc.)
+      // 2. Also check for any privy-type wallet (embedded but maybe not yet "connected")
       if (!wallet) {
-        wallet = wallets[0] ?? null
-        console.log("[KernelWallet] fallback to wallets[0]:", !!wallet)
+        wallet = wallets.find(w => w.walletClientType === "privy") ?? null
       }
 
-      // 3. If still no wallet, create an embedded one (first-time email users)
+      // 3. No embedded wallet found — try creating one (social/email login users)
       if (!wallet) {
-        console.log("[KernelWallet] no wallet found, creating embedded wallet...")
         try {
           const created = await createWallet()
-          console.log("[KernelWallet] created wallet:", created?.address?.slice(0, 10))
           wallet = created as unknown as typeof wallets[0]
-        } catch (createErr) {
-          console.log("[KernelWallet] createWallet error:", createErr)
-          // createWallet throws if embedded wallet already exists
-          // retry getting it from the array
-          wallet = getEmbeddedConnectedWallet(wallets) ?? wallets[0] ?? null
-          console.log("[KernelWallet] retry after error:", !!wallet)
+        } catch {
+          // createWallet throws if embedded wallet already exists — retry
+          wallet = getEmbeddedConnectedWallet(wallets)
+            ?? wallets.find(w => w.walletClientType === "privy")
+            ?? null
         }
+      }
+
+      // 4. Last resort — use any external wallet (MetaMask, Phantom, etc.)
+      if (!wallet) {
+        wallet = wallets[0] ?? null
       }
 
       if (!wallet) {
         setState({ status: "error", error: "No wallet available. Please log in first." })
         return null
       }
-
-      console.log("[KernelWallet] using wallet:", wallet.walletClientType, wallet.address?.slice(0, 10))
 
       const provider = await wallet.getEthereumProvider()
       const address = wallet.address as `0x${string}`
@@ -87,6 +84,7 @@ export function useKernelWallet() {
       setState({ status: "ready", kernelClient, kernelAddress })
       return { kernelClient, kernelAddress }
     } catch (err) {
+      console.error("[KernelWallet] connect failed:", err)
       const message = err instanceof Error ? err.message : "Failed to initialize smart wallet"
       setState({ status: "error", error: message })
       return null

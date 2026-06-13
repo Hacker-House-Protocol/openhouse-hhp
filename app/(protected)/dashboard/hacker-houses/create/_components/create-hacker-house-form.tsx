@@ -51,10 +51,10 @@ import {
 } from "@/lib/constants/location"
 
 
-const APPLICATION_TYPE_LABELS: Record<string, { title: string; description: string; color: string }> = {
+const APPLICATION_TYPE_LABELS: Record<string, { title: string; description: string; color: string; comingSoon?: boolean }> = {
   open: { title: "Open", description: "Anyone can apply", color: "text-builder-archetype" },
   invite_only: { title: "Invite only", description: "You invite builders directly", color: "text-primary" },
-  curated: { title: "Curated", description: "You review each applicant manually", color: "text-amber" },
+  curated: { title: "Curated", description: "You review each applicant manually", color: "text-amber", comingSoon: true },
 }
 
 const EVENT_TIMING_LABELS: Record<string, string> = {
@@ -65,7 +65,7 @@ const EVENT_TIMING_LABELS: Record<string, string> = {
 
 const MODALITY_OPTIONS: { value: string; title: string; description: string; color: string }[] = [
   { value: "paid", title: "Co-Payment", description: "Split costs between all members", color: "text-builder-archetype" },
-  { value: "free", title: "Sponsored", description: "A sponsor covers the stay", color: "text-primary" },
+  { value: "free", title: "Sponsored", description: "A sponsor covers the stay", color: "text-primary", comingSoon: true },
   { value: "staking", title: "Staking", description: "Stake crypto to reserve your spot", color: "text-amber" },
 ]
 
@@ -335,7 +335,7 @@ export function CreateHackerHouseForm({
 
   useEffect(() => {
     if (watchedModality === "free") {
-      setValue("application_type", "curated")
+      setValue("application_type", "invite_only")
     }
   }, [watchedModality, setValue])
 
@@ -603,27 +603,34 @@ export function CreateHackerHouseForm({
                     onValueChange={field.onChange}
                     className="gap-2"
                   >
-                    {MODALITY_OPTIONS.map((opt) => (
-                      <label
-                        key={opt.value}
-                        className={cn(
-                          "w-full flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer",
-                          field.value === opt.value
-                            ? "border-primary bg-primary/5"
-                            : "border-muted-foreground/25 hover:border-primary/40",
-                        )}
-                      >
-                        <RadioGroupItem value={opt.value} />
-                        <div className="flex flex-col gap-0.5">
-                          <span className={cn("text-sm font-medium", field.value === opt.value ? opt.color : "text-foreground")}>
-                            {opt.title}
-                          </span>
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {opt.description}
-                          </span>
-                        </div>
-                      </label>
-                    ))}
+                    {MODALITY_OPTIONS.map((opt) => {
+                      const disabled = opt.comingSoon === true
+                      return (
+                        <label
+                          key={opt.value}
+                          className={cn(
+                            "w-full flex items-center gap-4 p-4 rounded-lg border transition-all",
+                            disabled
+                              ? "border-muted-foreground/15 opacity-50 cursor-not-allowed"
+                              : "cursor-pointer",
+                            !disabled && field.value === opt.value
+                              ? "border-primary bg-primary/5"
+                              : !disabled && "border-muted-foreground/25 hover:border-primary/40",
+                          )}
+                        >
+                          <RadioGroupItem value={opt.value} disabled={disabled} />
+                          <div className="flex flex-col gap-0.5">
+                            <span className={cn("text-sm font-medium", !disabled && field.value === opt.value ? opt.color : "text-foreground")}>
+                              {opt.title}
+                              {disabled && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-strategist/20 text-strategist font-mono">Coming soon</span>}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {opt.description}
+                            </span>
+                          </div>
+                        </label>
+                      )
+                    })}
                   </RadioGroup>
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
@@ -1349,8 +1356,8 @@ export function CreateHackerHouseForm({
                   <FieldLabel>Application type</FieldLabel>
                   <div className="flex items-center gap-3 p-4 rounded-lg border border-primary/30 bg-primary/5">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-foreground">Curated review</span>
-                      <span className="text-xs text-muted-foreground font-mono">Sponsored houses use curated review — you approve each applicant manually</span>
+                      <span className="text-sm font-medium text-foreground">Invite only</span>
+                      <span className="text-xs text-muted-foreground font-mono">Sponsored houses are invite only — you invite builders directly</span>
                     </div>
                   </div>
                 </Field>
@@ -1383,27 +1390,35 @@ export function CreateHackerHouseForm({
                       onValueChange={field.onChange}
                       className="gap-2"
                     >
-                      {APPLICATION_TYPES.map((t) => (
-                        <label
-                          key={t}
-                          className={cn(
-                            "w-full flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer",
-                            field.value === t
-                              ? "border-primary bg-primary/5"
-                              : "border-muted-foreground/25 hover:border-primary/40",
-                          )}
-                        >
-                          <RadioGroupItem value={t} />
-                          <div className="flex flex-col gap-0.5">
-                            <span className={cn("text-sm font-medium", field.value === t ? APPLICATION_TYPE_LABELS[t].color : "text-foreground")}>
-                              {APPLICATION_TYPE_LABELS[t].title}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-mono">
-                              {APPLICATION_TYPE_LABELS[t].description}
-                            </span>
-                          </div>
-                        </label>
-                      ))}
+                      {APPLICATION_TYPES.map((t) => {
+                        const cfg = APPLICATION_TYPE_LABELS[t]
+                        const disabled = cfg.comingSoon === true
+                        return (
+                          <label
+                            key={t}
+                            className={cn(
+                              "w-full flex items-center gap-4 p-4 rounded-lg border transition-all",
+                              disabled
+                                ? "border-muted-foreground/15 opacity-50 cursor-not-allowed"
+                                : "cursor-pointer",
+                              !disabled && field.value === t
+                                ? "border-primary bg-primary/5"
+                                : !disabled && "border-muted-foreground/25 hover:border-primary/40",
+                            )}
+                          >
+                            <RadioGroupItem value={t} disabled={disabled} />
+                            <div className="flex flex-col gap-0.5">
+                              <span className={cn("text-sm font-medium", !disabled && field.value === t ? cfg.color : "text-foreground")}>
+                                {cfg.title}
+                                {disabled && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-strategist/20 text-strategist font-mono">Coming soon</span>}
+                              </span>
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {cfg.description}
+                              </span>
+                            </div>
+                          </label>
+                        )
+                      })}
                     </RadioGroup>
                   </Field>
                 )}

@@ -1,11 +1,13 @@
 "use client"
 
 import { use, useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import { ArrowLeft, CalendarDays, MapPin, Check, Users } from "lucide-react"
 import { formatUnits } from "viem"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useHackerHouse } from "@/services/api/hacker-houses"
+import { useHackerHouse, useInviteStatus } from "@/services/api/hacker-houses"
 import { useProfile } from "@/services/api/profile"
 import { ARCHETYPES } from "@/lib/onboarding"
 import { useEscrowState } from "@/hooks/use-escrow-state"
@@ -50,6 +52,8 @@ export default function PaymentPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const { data: house, isLoading } = useHackerHouse(id)
   const { data: profile } = useProfile({ enabled: true })
 
@@ -60,6 +64,11 @@ export default function PaymentPage({
   useEffect(() => {
     if (depositSuccess) setShowConfetti(true)
   }, [depositSuccess])
+
+  const isOwner = profile?.id === house?.creator.id
+  const isInviteOnly = house?.application_type === "invite_only"
+  const { data: inviteStatus } = useInviteStatus(id, isInviteOnly && !isOwner)
+  const isInvited = isOwner || !isInviteOnly || inviteStatus?.invited === true
 
   const escrowAddress = (house?.escrow_address ?? null) as `0x${string}` | null
 
@@ -79,8 +88,6 @@ export default function PaymentPage({
 
   const hasGmxYield = house?.yield_mode === "gmx"
   const { data: yieldData, isLoading: yieldLoading } = usePendingYield(escrowAddress, hasGmxYield)
-
-  const isOwner = profile?.id === house?.creator.id
 
   if (isLoading) {
     return (
@@ -215,12 +222,18 @@ export default function PaymentPage({
           </div>
 
           <div className="w-full max-w-sm">
-            <Link
-              href={`/dashboard/hacker-houses/${id}`}
+            <button
+              type="button"
               className="w-full py-4 px-6 bg-builder-archetype text-background font-bold rounded-full hover:opacity-90 transition-opacity text-center block"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["escrow-state"] })
+                queryClient.invalidateQueries({ queryKey: ["hacker-house"] })
+                queryClient.invalidateQueries({ queryKey: ["hacker-houses"] })
+                router.push(`/dashboard/hacker-houses/${id}`)
+              }}
             >
               Back to House
-            </Link>
+            </button>
           </div>
         </div>
       </PageContainer>
@@ -326,8 +339,8 @@ export default function PaymentPage({
         {/* Escrow Status — always shown */}
         <EscrowStatus house={house} escrow={escrow} escrowLoading={escrowLoading} />
 
-        {/* Deposit Section — everyone can pay their share (host included in co-payment) */}
-        {escrow && (
+        {/* Deposit Section — gated by invite status for invite_only houses */}
+        {escrow && isInvited && (
           <>
             <DepositSection
               escrowAddress={escrowAddress}
@@ -338,6 +351,7 @@ export default function PaymentPage({
               onConnect={connect}
               onDepositSuccess={() => setDepositSuccess(true)}
               kernelClient={kernelClient}
+              kernelAddress={kernelAddress}
             />
             {/* Do Later — only when deposit is still possible and user hasn't deposited */}
             {!builderSpot?.hasDeposited && !escrow.isFull && !escrow.isCancelled && !escrow.isReleased && (
@@ -349,6 +363,11 @@ export default function PaymentPage({
               </Link>
             )}
           </>
+        )}
+        {escrow && !isInvited && (
+          <div className="bg-card border border-border rounded-xl p-6 text-center text-muted-foreground text-sm">
+            This house is invite only. You need an invite from the host to deposit.
+          </div>
         )}
 
         {/* Host Actions — creator only */}

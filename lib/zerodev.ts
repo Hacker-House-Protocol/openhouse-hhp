@@ -20,11 +20,18 @@ const entryPoint = {
 
 const kernelVersion = "0.3.1" as const
 
+/**
+ * Singleton public client for read-only calls (multicall, readContract, etc.).
+ * Uses the chain's default public RPC to avoid ZeroDev bundler rate limits.
+ * The bundler URL is reserved for write operations (UserOps).
+ */
+const _readClient = createPublicClient({
+  chain,
+  transport: http(),
+})
+
 export function getPublicClient() {
-  return createPublicClient({
-    chain,
-    transport: http(bundlerUrl),
-  })
+  return _readClient
 }
 
 /**
@@ -41,7 +48,7 @@ export function getPublicClient() {
 export async function createKernelClient(
   walletClient: WalletClient<Transport, Chain | undefined, Account>,
 ) {
-  const publicClient = getPublicClient()
+  const publicClient = createPublicClient({ chain, transport: http(bundlerUrl) })
   const signer = await toSigner({ signer: walletClient })
 
   const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
@@ -78,7 +85,7 @@ export async function createKernelClient(
 export async function getKernelAddress(
   walletClient: WalletClient<Transport, Chain | undefined, Account>,
 ): Promise<`0x${string}`> {
-  const publicClient = getPublicClient()
+  const publicClient = createPublicClient({ chain, transport: http(bundlerUrl) })
   const signer = await toSigner({ signer: walletClient })
 
   const ecdsaValidator = await signerToEcdsaValidator(publicClient, {

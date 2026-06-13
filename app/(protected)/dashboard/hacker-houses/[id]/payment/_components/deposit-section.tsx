@@ -35,9 +35,10 @@ interface Props {
   onConnect: () => Promise<unknown>
   onDepositSuccess?: () => void
   kernelClient: unknown | null
+  kernelAddress: `0x${string}` | null
 }
 
-export function DepositSection({ escrowAddress, escrow, builderSpot, walletReady, houseType, onConnect, onDepositSuccess, kernelClient }: Props) {
+export function DepositSection({ escrowAddress, escrow, builderSpot, walletReady, houseType, onConnect, onDepositSuccess, kernelClient, kernelAddress }: Props) {
   const queryClient = useQueryClient()
   const { deposit, isLoading, error } = useDeposit()
   const [deposited, setDeposited] = useState(false)
@@ -125,7 +126,7 @@ export function DepositSection({ escrowAddress, escrow, builderSpot, walletReady
       })
       setMinted(true)
     } catch (err) {
-      console.error("[mint] Error:", err)
+      // mint failed — toast is shown above
     } finally {
       setMinting(false)
     }
@@ -139,7 +140,9 @@ export function DepositSection({ escrowAddress, escrow, builderSpot, walletReady
       client: kernelClient as import("@zerodev/sdk/clients").KernelAccountClient,
     })
     if (!txHash) return // deposit failed — error shown by hook
-    queryClient.invalidateQueries({ queryKey: [queryKeys.escrowState, escrowAddress] })
+    queryClient.invalidateQueries({ queryKey: [queryKeys.escrowState] })
+    queryClient.invalidateQueries({ queryKey: [queryKeys.hackerHouse] })
+    queryClient.invalidateQueries({ queryKey: [queryKeys.hackerHouses] })
     setDeposited(true)
     onDepositSuccess?.()
   }
@@ -179,7 +182,7 @@ export function DepositSection({ escrowAddress, escrow, builderSpot, walletReady
       )}
       {minted && (
         <a
-          href={`https://sepolia.arbiscan.io/address/${(kernelClient as import("@zerodev/sdk/clients").KernelAccountClient)?.account?.address ?? escrowAddress}#tokentxns`}
+          href={`https://sepolia.arbiscan.io/address/${kernelAddress ?? escrowAddress}#tokentxns`}
           target="_blank"
           rel="noopener noreferrer"
           className="bg-primary/10 border border-primary/30 rounded-lg p-3 flex items-center gap-2 hover:bg-primary/15 transition-colors"

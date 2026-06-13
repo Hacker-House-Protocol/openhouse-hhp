@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Bell, UserPlus, UserCheck, Zap, Building2 } from "lucide-react"
+import { Bell, UserPlus, UserCheck, Zap, Building2, Send } from "lucide-react"
 import { useMarkNotificationRead } from "@/services/api/notifications"
 import { cn } from "@/lib/utils"
 import type { Notification, NotificationType } from "@/lib/types"
@@ -13,6 +13,7 @@ const ICON_MAP: Record<NotificationType, React.ElementType> = {
   hack_space_accepted: Zap,
   hacker_house_application: Building2,
   hacker_house_accepted: Building2,
+  hacker_house_invite: Send,
   event_request: Bell,
 }
 

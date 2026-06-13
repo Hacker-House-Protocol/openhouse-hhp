@@ -112,18 +112,14 @@ export function useCreateHouse() {
       client: externalClient,
     }: CreateHouseParams) => {
       const activeClient = externalClient ?? kernelClient
-      console.log("[useCreateHouse] using externalClient:", !!externalClient, "hookClient:", !!kernelClient)
       if (!activeClient) {
-        const msg = "Wallet not connected. Call connect() first."
-        console.error("[useCreateHouse]", msg)
-        setCreateState({ status: "error", error: msg })
+        setCreateState({ status: "error", error: "Wallet not connected. Call connect() first." })
         return
       }
 
       setCreateState({ status: "loading" })
 
       try {
-        console.log("[useCreateHouse] Sending UserOperation to factory:", env.NEXT_PUBLIC_FACTORY_ADDRESS)
         const txHash = await activeClient.sendUserOperation({
           calls: [
             {
@@ -151,7 +147,6 @@ export function useCreateHouse() {
         return txHash
       } catch (err) {
         const message = err instanceof Error ? err.message : "House creation failed"
-        console.error("[useCreateHouse] Error:", message, err)
         setCreateState({ status: "error", error: message })
       }
     },

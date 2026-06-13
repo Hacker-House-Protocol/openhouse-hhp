@@ -32,26 +32,17 @@ const escrowBuilderAbi = [
 async function fetchBuilderSpot(escrowAddress: `0x${string}`, builderAddress: `0x${string}`) {
   const client = getPublicClient()
 
-  const [hasDeposited, depositAmount, bookingId] = await Promise.all([
-    client.readContract({
-      address: escrowAddress,
-      abi: escrowBuilderAbi,
-      functionName: "hasDeposited",
-      args: [builderAddress],
-    }) as Promise<boolean>,
-    client.readContract({
-      address: escrowAddress,
-      abi: escrowBuilderAbi,
-      functionName: "deposits",
-      args: [builderAddress],
-    }) as Promise<bigint>,
-    client.readContract({
-      address: escrowAddress,
-      abi: escrowBuilderAbi,
-      functionName: "builderBooking",
-      args: [builderAddress],
-    }) as Promise<bigint>,
-  ])
+  const results = await client.multicall({
+    contracts: [
+      { address: escrowAddress, abi: escrowBuilderAbi, functionName: "hasDeposited", args: [builderAddress] },
+      { address: escrowAddress, abi: escrowBuilderAbi, functionName: "deposits", args: [builderAddress] },
+      { address: escrowAddress, abi: escrowBuilderAbi, functionName: "builderBooking", args: [builderAddress] },
+    ],
+  })
+
+  const hasDeposited = results[0].result as boolean
+  const depositAmount = results[1].result as bigint
+  const bookingId = results[2].result as bigint
 
   return {
     hasDeposited,       // boolean — true if this builder has a spot

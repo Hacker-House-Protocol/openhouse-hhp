@@ -85,7 +85,6 @@ export default function CreateHackerHousePage() {
           throw new Error("Missing deposit amount or withdraw date")
         }
 
-        console.log("[Deploy] Calling factory.createHouse…", { hostSafe, depositUsdc, withdrawTs, capacity: values.capacity })
         const txHash = await createHouse({
           hostSafe,
           depositAmount: parseUnits(String(depositUsdc), 6),
@@ -97,7 +96,6 @@ export default function CreateHackerHousePage() {
           client,
         })
 
-        console.log("[Deploy] txHash:", txHash)
         if (!txHash) throw new Error("Transaction failed — no hash returned")
 
         if (client) {
@@ -125,7 +123,6 @@ export default function CreateHackerHousePage() {
           }
 
           if (escrowAddress) {
-            console.log("[Deploy] Escrow deployed at:", escrowAddress)
             await genericAuthRequest<{ hacker_house: HackerHouse }>(
               "patch",
               `/api/hacker-houses/${result.id}`,
@@ -133,13 +130,11 @@ export default function CreateHackerHousePage() {
             )
             toast.success("Contract deployed!", { id: "deploy" })
           } else {
-            console.warn("[Deploy] No escrow address found in receipt logs")
             toast.error("Contract deployed but address not found", { id: "deploy" })
           }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Deploy failed"
-        console.error("[Deploy] Error:", msg, err)
         toast.error(`Contract deploy failed: ${msg}`, { id: "deploy" })
         // Still navigate — the DB record was created; creator can retry deploy later
       }

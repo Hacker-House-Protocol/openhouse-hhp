@@ -66,11 +66,8 @@ export function useDeposit() {
       client?: KernelAccountClient
     }) => {
       const activeClient = externalClient ?? kernelClient
-      console.log("[useDeposit] externalClient:", !!externalClient, "hookClient:", !!kernelClient)
       if (!activeClient) {
-        const msg = "Wallet not connected. Call connect() first."
-        console.error("[useDeposit]", msg)
-        setDepositState({ status: "error", error: msg })
+        setDepositState({ status: "error", error: "Wallet not connected. Call connect() first." })
         return
       }
 
@@ -78,7 +75,6 @@ export function useDeposit() {
 
       try {
         const amount = parseUnits(amountUsdc, USDC_DECIMALS)
-        console.log("[useDeposit] Sending approve+deposit:", { escrowAddress, bookingId: String(bookingId), amount: String(amount) })
 
         // Batch: approve + deposit in one UserOperation (atomic, gasless)
         const txHash = await activeClient.sendUserOperation({
@@ -106,12 +102,10 @@ export function useDeposit() {
           ],
         })
 
-        console.log("[useDeposit] Success! txHash:", txHash)
         setDepositState({ status: "success", txHash })
         return txHash
       } catch (err) {
         const message = err instanceof Error ? err.message : "Deposit failed"
-        console.error("[useDeposit] Error:", message, err)
         setDepositState({ status: "error", error: message })
       }
     },

@@ -38,23 +38,17 @@ const yieldAbi = [
 async function fetchPendingYield(escrowAddress: `0x${string}`) {
   const client = getPublicClient()
 
-  const [pendingYield, yieldDest, filledCount] = await Promise.all([
-    client.readContract({
-      address: escrowAddress,
-      abi: yieldAbi,
-      functionName: "pendingYield",
-    }) as Promise<bigint>,
-    client.readContract({
-      address: escrowAddress,
-      abi: yieldAbi,
-      functionName: "yieldDest",
-    }) as Promise<number>,
-    client.readContract({
-      address: escrowAddress,
-      abi: yieldAbi,
-      functionName: "nextBookingId",
-    }) as Promise<bigint>,
-  ])
+  const results = await client.multicall({
+    contracts: [
+      { address: escrowAddress, abi: yieldAbi, functionName: "pendingYield" },
+      { address: escrowAddress, abi: yieldAbi, functionName: "yieldDest" },
+      { address: escrowAddress, abi: yieldAbi, functionName: "nextBookingId" },
+    ],
+  })
+
+  const pendingYield = results[0].result as bigint
+  const yieldDest = results[1].result as number
+  const filledCount = results[2].result as bigint
 
   // yieldDest: 0 = HOST, 1 = BUILDERS
   const yieldGoesToBuilders = yieldDest === 1

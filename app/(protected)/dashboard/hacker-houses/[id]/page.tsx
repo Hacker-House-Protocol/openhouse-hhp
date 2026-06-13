@@ -10,6 +10,7 @@ import {
   useApplyToHackerHouse,
   useHackerHouse,
   useUpdateHackerHouse,
+  useInviteStatus,
 } from "@/services/api/hacker-houses"
 import { useProfile } from "@/services/api/profile"
 import { useKernelWallet } from "@/hooks/use-kernel-wallet"
@@ -48,6 +49,7 @@ import { use, useState, useEffect, useRef } from "react"
 import { PageContainer } from "../../_components/page-container"
 import { BackButton } from "../../../_components/back-button"
 import { HackerHouseApplicationManager } from "./_components/hacker-house-application-manager"
+import { InviteBuilderModal } from "./_components/invite-builder-modal"
 
 const MiniMap = dynamic(() => import("@/components/mini-map").then((m) => m.MiniMap), {
   ssr: false,
@@ -202,6 +204,12 @@ export default function HackerHouseDetailPage({
   const { data: yieldData } = usePendingYield(escrowAddress, hasGmxYield)
   const apply = useApplyToHackerHouse(id)
   const updateHackerHouse = useUpdateHackerHouse(id)
+
+  // Must be called before any early returns (Rules of Hooks)
+  const isInviteOnly = hackerHouse?.application_type === "invite_only"
+  const isOwnerEarly = profile?.id != null && profile.id === hackerHouse?.creator?.id
+  const { data: inviteStatus } = useInviteStatus(id, isInviteOnly === true && !isOwnerEarly)
+
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showGallery, setShowGallery] = useState(false)
   const [showApplyForm, setShowApplyForm] = useState(false)
@@ -258,6 +266,7 @@ export default function HackerHouseDetailPage({
   const isAccepted = hasPaid || isOwner
   const modeCfg = MODE_CONFIG[hackerHouse.modality] ?? MODE_CONFIG.paid
   const statusCfg = STATUS_CONFIG[hackerHouse.status as HouseStatus] ?? STATUS_CONFIG.open
+  const isInvited = isOwner || !isInviteOnly || inviteStatus?.invited === true
   const canApply = !isOwner && hackerHouse.status === "open"
   const allParticipants = [hackerHouse.creator, ...(hackerHouse.participants ?? [])].filter(
     (p, i, arr) => arr.findIndex((x) => x.id === p.id) === i,
@@ -476,6 +485,10 @@ export default function HackerHouseDetailPage({
                 {linkCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                 {linkCopied ? "Copied!" : "Share link"}
               </Button>
+              <InviteBuilderModal
+                hackerHouseId={id}
+                participantIds={allParticipants.map((p) => p.id)}
+              />
               {(hackerHouse.status === "open" || hackerHouse.status === "full") && (
                 <Button
                   variant="outline"
@@ -940,7 +953,7 @@ export default function HackerHouseDetailPage({
                     Contract type
                   </span>
                   <span className="text-foreground font-medium">
-                    {hackerHouse.contract_type === "multisig" ? "Multisig" : "Admin Wallet"}
+                    {hackerHouse.contract_type === "multisig" ? "Multisig" : "Host Wallet"}
                   </span>
                 </div>
               )}
@@ -1086,6 +1099,16 @@ export default function HackerHouseDetailPage({
                 >
                   🔑 See your Key NFT
                 </button>
+              ) : hackerHouse.application_type === "curated" ? (
+                <div className="flex-1 max-w-xs py-4 px-6 font-bold rounded-full flex items-center justify-center gap-2 bg-muted text-muted-foreground">
+                  <Lock className="size-4" />
+                  Curated — Coming Soon
+                </div>
+              ) : !isInvited ? (
+                <div className="flex-1 max-w-xs py-4 px-6 font-bold rounded-full flex items-center justify-center gap-2 bg-muted text-muted-foreground">
+                  <Lock className="size-4" />
+                  Invite Only
+                </div>
               ) : (
                 <Link
                   href={`/dashboard/hacker-houses/${id}/payment`}
@@ -1154,7 +1177,7 @@ export default function HackerHouseDetailPage({
 
                 {escrowAddress && (
                   <a
-                    href={`https://sepolia.arbiscan.io/address/${escrowAddress}`}
+                    href={kernelAddress ? `https://sepolia.arbiscan.io/address/${kernelAddress}#nfttransfers` : `https://sepolia.arbiscan.io/address/${escrowAddress}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors text-sm font-mono"

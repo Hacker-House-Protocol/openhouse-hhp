@@ -18,15 +18,23 @@ const escrowStateAbi = [
 async function fetchEscrowState(escrowAddress: `0x${string}`) {
   const client = getPublicClient()
 
-  const [totalDeposited, cancelled, withdrawDate, depositAmount, capacity, nextBookingId] =
-    await Promise.all([
-      client.readContract({ address: escrowAddress, abi: escrowStateAbi, functionName: "totalDeposited" }) as Promise<bigint>,
-      client.readContract({ address: escrowAddress, abi: escrowStateAbi, functionName: "cancelled" }) as Promise<boolean>,
-      client.readContract({ address: escrowAddress, abi: escrowStateAbi, functionName: "withdrawDate" }) as Promise<bigint>,
-      client.readContract({ address: escrowAddress, abi: escrowStateAbi, functionName: "depositAmount" }) as Promise<bigint>,
-      client.readContract({ address: escrowAddress, abi: escrowStateAbi, functionName: "capacity" }) as Promise<bigint>,
-      client.readContract({ address: escrowAddress, abi: escrowStateAbi, functionName: "nextBookingId" }) as Promise<bigint>,
-    ])
+  const results = await client.multicall({
+    contracts: [
+      { address: escrowAddress, abi: escrowStateAbi, functionName: "totalDeposited" },
+      { address: escrowAddress, abi: escrowStateAbi, functionName: "cancelled" },
+      { address: escrowAddress, abi: escrowStateAbi, functionName: "withdrawDate" },
+      { address: escrowAddress, abi: escrowStateAbi, functionName: "depositAmount" },
+      { address: escrowAddress, abi: escrowStateAbi, functionName: "capacity" },
+      { address: escrowAddress, abi: escrowStateAbi, functionName: "nextBookingId" },
+    ],
+  })
+
+  const totalDeposited = results[0].result as bigint
+  const cancelled = results[1].result as boolean
+  const withdrawDate = results[2].result as bigint
+  const depositAmount = results[3].result as bigint
+  const capacity = results[4].result as bigint
+  const nextBookingId = results[5].result as bigint
 
   const spotsRemaining = capacity - nextBookingId
   const nowSec = BigInt(Math.floor(Date.now() / 1000))

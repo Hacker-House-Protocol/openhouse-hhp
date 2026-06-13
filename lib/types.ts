@@ -46,6 +46,7 @@ export type NotificationType =
   | "hack_space_accepted"
   | "hacker_house_application"
   | "hacker_house_accepted"
+  | "hacker_house_invite"
   | "event_request"
 
 export interface Notification {

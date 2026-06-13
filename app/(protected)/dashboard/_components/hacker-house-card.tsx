@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { ARCHETYPES } from "@/lib/onboarding"
 import type { HackerHouse } from "@/lib/types"
-import { CalendarDays, BadgeCheck, TrendingUp } from "lucide-react"
+import { CalendarDays, BadgeCheck, Lock, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -149,13 +149,21 @@ export function HackerHouseCard({ hackerHouse, currentUserId }: HackerHouseCardP
           {modalityLabel}
         </span>
 
-        {/* GMX Yield badge — bottom right */}
-        {hackerHouse.yield_mode === "gmx" && (
-          <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-sm font-mono border border-strategist/60 bg-black/70 text-strategist backdrop-blur-sm">
-            <TrendingUp className="size-2.5" />
-            GMX Yield
-          </span>
-        )}
+        {/* Bottom-right badges */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 z-10">
+          {hackerHouse.application_type === "invite_only" && (
+            <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap bg-black/70 text-amber-400 backdrop-blur-sm border border-amber-400/30">
+              <Lock className="size-2.5" />
+              Invite
+            </span>
+          )}
+          {hackerHouse.yield_mode === "gmx" && (
+            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-sm font-mono border border-strategist/60 bg-black/70 text-strategist backdrop-blur-sm">
+              <TrendingUp className="size-2.5" />
+              GMX Yield
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="p-3 pb-4 flex flex-col gap-2">
