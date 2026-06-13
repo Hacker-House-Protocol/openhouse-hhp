@@ -77,13 +77,15 @@ Your Hacker House confirmation is a **Booking NFT on Arbitrum** — with dates, 
 
 ### Hacker Houses — Full E2E On-Chain Flow
 - **Create** — multi-step wizard: basics, access rules, payment/escrow config, check-in details, images
-- **Deploy** — one click deploys a new HackerHouseEscrow + SpotNFT contract pair on Arbitrum via Factory
+- **Deploy** — one click deploys a new HackerHouseEscrow + SpotNFT + YieldAdapter on Arbitrum via Factory (single transaction)
 - **Deposit** — builders mint testnet USDC, then Pay My Share in a single gasless transaction (approve + deposit batched via ZeroDev)
 - **SpotNFT** — each deposit mints a Key NFT to the builder as proof of their spot
-- **Release** — host releases funds after withdraw date (99.5% to host, 0.5% protocol fee)
-- **Cancel** — host cancels at any time, 100% refund to all builders, all NFTs burned
+- **Yield** — staking deposits generate yield in real time (10% APY on testnet via MockYieldAdapter, GMX V2 on mainnet). Yield goes to host or is split among builders, configurable at creation
+- **Release** — host releases funds after withdraw date: withdraws from yield adapter, distributes yield, 99.5% to host + 0.5% protocol fee
+- **Cancel** — host cancels at any time, funds withdrawn from adapter, 100% refund to all builders, all NFTs burned. No fee on cancel.
 - **Refund verification** — builders can verify their refund on Arbiscan directly from the UI
-- Three modalities: **Co-Payment** (split cost), **Staking** (returned after checkout), **Sponsored** (free, application-based)
+- **Invite Only** — houses can be gated to invited builders only; non-invited users see a lock screen
+- Three modalities: **Co-Payment** (split cost), **Staking** (returned after checkout + yield), **Hybrid** (partial payment + partial stake)
 - Image carousel, amenities, event association, participant roster
 - Full application management — accept, reject, waitlist
 
@@ -110,7 +112,7 @@ Your Hacker House confirmation is a **Booking NFT on Arbitrum** — with dates, 
 
 ## Smart Contracts — Deployed on Arbitrum Sepolia
 
-**Source:** [`contracts/`](./contracts/) · **Framework:** Foundry · **Tests:** 20/20 passing
+**Source:** [`contracts/`](./contracts/) · **Framework:** Foundry · **Tests:** 26/26 passing
 
 | Contract | Address | Arbiscan |
 |---|---|---|
@@ -121,17 +123,58 @@ The contract replaces blind trust in the organizer with a trustless, automatic e
 
 | Function | Who calls it | What happens |
 |---|---|---|
-| `createHouse()` | Factory | Deploys a new Escrow + SpotNFT pair per house |
-| `deposit()` | Accepted builder | Locks USDC in the escrow, mints SpotNFT to builder |
-| `release()` | Host (after withdraw date) | 99.5% to host + 0.5% fee to HHP treasury |
-| `cancelHouse()` | Creator | 100% refund to all builders, SpotNFTs burned |
-| `transferSpot()` | Spot holder | Transfers spot + deposit to another builder |
+| `createHouse()` | Factory | Deploys Escrow + SpotNFT + YieldAdapter in a single transaction |
+| `deposit()` | Accepted builder | Locks USDC in escrow, forwards to yield adapter if staking, mints SpotNFT |
+| `release()` | Host (after withdraw date) | Withdraws from adapter, distributes yield, 99.5% to host + 0.5% fee |
+| `cancelHouse()` | Creator | Withdraws from adapter, 100% refund to all builders, SpotNFTs burned |
+| `transferSpot()` | Spot holder | Transfers spot + deposit record to another builder |
+| `pendingYield()` | Anyone (view) | Returns accrued yield from the adapter in real time |
 
-Each house is an isolated contract — if one has issues, others are unaffected.
+Each house is an isolated contract — if one has issues, others are unaffected. Each staking house gets its own yield adapter (1:1 relationship).
+
+### Yield System — Pluggable Adapter Architecture
+
+Locked deposits don't just sit idle — they generate yield while awaiting release.
+
+```
+Builder deposits USDC ──► Escrow ──► YieldAdapter (holds funds, accrues yield)
+                                          │
+                                     (time passes)
+                                          │
+                            release() ◄───┘
+                                │
+              ┌─────────────────┼─────────────────┐
+              ▼                 ▼                  ▼
+         Host gets         Builders get       Treasury gets
+      principal + yield*    yield share*        0.5% fee
+```
+
+**How it works:**
+
+- **IYieldAdapter** — a pluggable interface (`deposit`, `withdraw`, `pendingYield`, `totalDeposited`) that decouples the escrow from any specific yield source
+- **MockYieldAdapter** (testnet) — simulates 10% APY using time-based math: `yield = principal × APY × elapsed / year`. Mints MockUSDC to itself to represent earned yield
+- **GMXStrategy** (mainnet, planned) — same interface, real yield from GMX V2 Earn vaults on Arbitrum One. Swapping adapters requires **zero frontend changes**
+- **Yield destination** is set at house creation:
+  - `HOST` — all yield added to the host's payout on release
+  - `BUILDERS` — yield split equally among all depositors on release
+
+The Factory handles the full lifecycle in one transaction: deploys the adapter → deploys the escrow → deploys the SpotNFT → initializes both adapter and escrow with each other's addresses. The frontend sends one `createHouse()` call with 8 parameters — no multi-step process.
+
+**Technical note — the initialize pattern:**
+The adapter and escrow have a circular dependency (each needs the other's address). We solve this with an `initialize()` pattern: the adapter is deployed first without knowing its escrow, then initialized after the escrow is deployed. This is the same pattern used for the SpotNFT ↔ Escrow link. The Factory orchestrates both initializations atomically.
+
+### Three House Modalities
+
+| Modality | How deposits work | Yield | Use case |
+|---|---|---|---|
+| **Co-Payment** | Builders split the cost equally. Funds released to host after withdraw date. | None | Standard Hacker House — everyone chips in |
+| **Staking** | Builders lock USDC as commitment. **Full deposit returned** after checkout + yield earned. | Yes — via adapter | Proof-of-commitment houses. Builders get their money back + yield |
+| **Hybrid** | Partial payment + partial stake. Host receives a portion, rest returned to builders. | Yes — on staked portion | Mixed model for premium houses |
 
 ### Why Arbitrum
 
 - **Low gas fees** — deploy cost $0.01. Co-living deposits ($50–$500/person) need cheap transactions.
+- **GMX V2 on Arbitrum** — native yield source for staking deposits via GM tokens. No bridging needed.
 - **EVM-native** — standard Solidity, Foundry, no chain-specific changes
 - **Privy + ZeroDev support** — auth and account abstraction layers already support Arbitrum
 - **Ecosystem alignment** — this buildathon *is* Arbitrum. The fit is direct.
@@ -141,6 +184,7 @@ Each house is an isolated contract — if one has issues, others are unaffected.
 - Builders interact through **ZeroDev kernel accounts** — gasless, batched operations
 - `USDC.approve()` + `escrow.deposit()` execute as a **single atomic transaction**
 - First-time crypto users get an embedded wallet via Privy — no seed phrase, no gas
+- Social login users (email, Google, etc.) get an auto-generated embedded wallet — the smart account is created transparently, no crypto knowledge required
 - The contracts are AA-agnostic: they only see `msg.sender`, whether it's a MetaMask EOA, ZeroDev smart wallet, or Gnosis Safe
 
 ### Privacy by Design
@@ -176,7 +220,7 @@ The protocol charges those who want access to builders — not the builders them
 | Revenue Stream | Detail |
 |---|---|
 | **Host fee** | 0.5% on every pool coordinated via the escrow contract |
-| **Staking yield** | Locked deposits generate yield while awaiting release |
+| **Staking yield** | Locked deposits generate yield via pluggable adapters (MockYieldAdapter on testnet, GMX V2 on mainnet). Yield distributed to host or builders on release. |
 | **Sponsored houses** | DAOs and companies fund branded houses — *Arbitrum House*, *Base House* — paying for visibility and curated access to their ecosystem's builders |
 
 ---
@@ -185,7 +229,7 @@ The protocol charges those who want access to builders — not the builders them
 
 | Phase | Focus |
 |---|---|
-| **Buildathon (now)** | On-chain escrow + SpotNFT + gasless deposits + cancel/refund + release + Private Bridge (planned) + Communities |
+| **Buildathon (now)** | On-chain escrow + SpotNFT + yield adapter system + gasless deposits + cancel/refund + release + invite-only gating + Private Bridge (planned) + Communities |
 | **Phase 2** | Sponsored houses · On-chain access filters (score, POAPs) |
 | **V2** | In-app chat · Community governance · Gamified experience · Cypher Kittens NFT |
 | **V3** | ZK Matching · ZK Identity · Cross-chain |
