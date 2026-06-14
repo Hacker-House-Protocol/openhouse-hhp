@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { ARCHETYPES } from "@/lib/onboarding"
+import { resolveSkill } from "@/lib/skill-icons"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ConnectButton } from "./connect-button"
 import type { UserProfile, SuggestedBuilder } from "@/lib/types"
 
@@ -11,12 +13,46 @@ interface BuilderCardProps {
   showMatchInfo?: boolean
 }
 
+function SkillIconRow({ skills, max = 4 }: { skills: string[]; max?: number }) {
+  const visible = skills.slice(0, max)
+  const rest = skills.length - max
+  if (visible.length === 0) return null
+  return (
+    <div className="flex items-center gap-1">
+      {visible.map((skill) => {
+        const def = resolveSkill(skill)
+        return (
+          <Tooltip key={skill}>
+            <TooltipTrigger asChild>
+              <div className="size-5 rounded-md bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
+                {def.emoji ? (
+                  <span className="text-[10px] leading-none">{def.icon}</span>
+                ) : (
+                  <img src={def.icon} alt={def.label} className="size-3.5 object-contain" />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-[10px] font-mono">{def.label}</p>
+            </TooltipContent>
+          </Tooltip>
+        )
+      })}
+      {rest > 0 && (
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">+{rest}</span>
+      )}
+    </div>
+  )
+}
+
 export function BuilderCard({
   builder,
   currentUserId,
 }: BuilderCardProps) {
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
-  const firstSkill = (builder.talent_tags ?? [])[0] ?? (builder.skills ?? [])[0] ?? null
+  const allSkills = [
+    ...new Set([...(builder.talent_tags ?? []), ...(builder.skills ?? [])]),
+  ]
 
   const displayName = builder.handle
     ? `@${builder.handle}`
@@ -31,10 +67,10 @@ export function BuilderCard({
   const isOwnCard = currentUserId === builder.id
 
   const inner = (
-    <div className="p-4 text-center">
+    <div className="p-4 text-center flex flex-col items-center gap-2">
       {/* Avatar */}
       <div
-        className="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden border-[3px]"
+        className="w-16 h-16 rounded-full overflow-hidden border-[3px]"
         style={{
           borderColor: archetype
             ? `var(${archetype.colorVar})`
@@ -60,31 +96,16 @@ export function BuilderCard({
       </div>
 
       {/* Handle */}
-      <h3 className="font-display font-bold text-foreground text-sm truncate">
+      <h3 className="font-display font-bold text-foreground text-sm truncate w-full">
         {displayName}
       </h3>
 
-      {/* Archetype badge */}
-      {archetype && (
-        <span
-          className="inline-block px-2 py-0.5 rounded text-xs mt-1"
-          style={{
-            backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-            color: `var(${archetype.colorVar})`,
-          }}
-        >
-          {archetype.label}
-        </span>
-      )}
-
-      {/* First skill */}
-      {firstSkill && (
-        <p className="text-muted-foreground text-xs mt-2">{firstSkill}</p>
-      )}
+      {/* Skill icons */}
+      {allSkills.length > 0 && <SkillIconRow skills={allSkills} max={4} />}
 
       {/* Connect button */}
       {!isOwnCard && (
-        <div className="mt-3" onClick={(e) => e.preventDefault()}>
+        <div className="w-full mt-1" onClick={(e) => e.preventDefault()}>
           <ConnectButton targetUserId={builder.id} />
         </div>
       )}

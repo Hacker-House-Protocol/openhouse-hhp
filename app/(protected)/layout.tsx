@@ -23,6 +23,7 @@ export default function ProtectedLayout({
   const queryClient = useQueryClient()
   const [ready, setReady] = useState(false)
   const isWorkspace = pathname.includes("/workspace")
+  const isProfile = pathname === "/dashboard/profile" || pathname.startsWith("/dashboard/profile/") || pathname.startsWith("/dashboard/builders/")
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -55,7 +56,7 @@ export default function ProtectedLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="pb-16 md:pb-0">
-        {!isWorkspace && <WalletBadge />}
+        {!isWorkspace && !isProfile && <WalletBadge />}
         {children}
       </SidebarInset>
       <BottomNav />

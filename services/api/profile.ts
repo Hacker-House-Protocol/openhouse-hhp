@@ -93,3 +93,100 @@ export const usePatchProfile = () => {
     },
   })
 }
+
+// ── Link Access ──────────────────────────────────────────────────────────────
+
+export interface LinkAccessRequest {
+  id: string
+  status: "pending" | "accepted" | "denied"
+}
+
+export interface IncomingLinkRequest {
+  id: string
+  status: "pending"
+  requester_id: string
+  requester: { id: string; handle: string | null; avatar_url: string | null }
+}
+
+export const useLinkAccessStatus = (targetId: string) =>
+  useAppQuery<LinkAccessRequest | null>({
+    fetcher: async () => {
+      const { request } = await genericAuthRequest<{ request: LinkAccessRequest | null }>(
+        "get",
+        "/api/profile/link-access",
+        { target_id: targetId },
+      )
+      return request
+    },
+    queryKey: [queryKeys.linkAccess, "status", targetId],
+    enabled: !!targetId,
+  })
+
+export const useIncomingLinkRequests = () =>
+  useAppQuery<IncomingLinkRequest[]>({
+    fetcher: async () => {
+      const { requests } = await genericAuthRequest<{ requests: IncomingLinkRequest[] }>(
+        "get",
+        "/api/profile/link-access",
+        { incoming: "true" },
+      )
+      return requests
+    },
+    queryKey: [queryKeys.linkAccess, "incoming"],
+  })
+
+export const useRequestLinkAccess = () => {
+  const queryClient = useQueryClient()
+  return useAppMutation<{ target_id: string }, LinkAccessRequest>({
+    fetcher: async (body) => {
+      const { request } = await genericAuthRequest<{ request: LinkAccessRequest }>(
+        "post",
+        "/api/profile/link-access",
+        body,
+      )
+      return request
+    },
+    options: {
+      onSuccess: (data, vars) => {
+        queryClient.setQueryData([queryKeys.linkAccess, "status", vars.target_id], data)
+      },
+    },
+  })
+}
+
+export const useRespondLinkAccess = (requestId: string) => {
+  const queryClient = useQueryClient()
+  return useAppMutation<{ status: "accepted" | "denied" }, LinkAccessRequest>({
+    fetcher: async (body) => {
+      const { request } = await genericAuthRequest<{ request: LinkAccessRequest }>(
+        "patch",
+        `/api/profile/link-access/${requestId}`,
+        body,
+      )
+      return request
+    },
+    options: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [queryKeys.linkAccess, "incoming"] })
+      },
+    },
+  })
+}
+
+export const useUploadBanner = () => {
+  const queryClient = useQueryClient()
+  return useAppMutation<File, { banner_url: string }>({
+    fetcher: async (file) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      return genericAuthRequest<{ banner_url: string }>("post", "/api/profile/upload-banner", formData)
+    },
+    options: {
+      onSuccess: (data) => {
+        queryClient.setQueryData([queryKeys.profile], (old: UserProfile | undefined) =>
+          old ? { ...old, banner_url: data.banner_url } : old,
+        )
+      },
+    },
+  })
+}

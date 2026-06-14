@@ -29,4 +29,5 @@ export const queryKeys = {
   escrowState: "escrow-state",
   wallets: "wallets",
   gateCheck: "gate-check",
+  linkAccess: "link-access",
 }

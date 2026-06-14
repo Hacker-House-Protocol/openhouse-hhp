@@ -4,6 +4,7 @@ import { use } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useBuilderProfile } from "@/services/api/profile"
+import { useFriendshipStatus } from "@/services/api/friendships"
 import { ProfileView } from "../../profile/_components/profile-view"
 import { PageContainer } from "../../_components/page-container"
 import { BackButton } from "../../../_components/back-button"
@@ -15,6 +16,8 @@ interface BuilderProfilePageProps {
 export default function BuilderProfilePage({ params }: BuilderProfilePageProps) {
   const { username } = use(params)
   const { data: profile, isLoading, isError } = useBuilderProfile(username)
+  const { data: friendshipStatus } = useFriendshipStatus(profile?.id ?? "")
+  const isMatched = friendshipStatus?.status === "accepted"
 
   return (
     <PageContainer>
@@ -46,7 +49,7 @@ export default function BuilderProfilePage({ params }: BuilderProfilePageProps) 
           </Link>
         </div>
       ) : (
-        <ProfileView profile={profile} isOwner={false} />
+        <ProfileView profile={profile} isOwner={false} isMatched={isMatched} />
       )}
     </PageContainer>
   )

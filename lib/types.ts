@@ -87,11 +87,13 @@ export interface UserProfile {
   talent_credentials: TalentCredential[]
   poaps: POAP[]
   seeking_skills: string[]
+  matching_cities: string[]
   featured_poaps: string[]
   kernel_address: string | null
   human_passport_verified: boolean
   worldid_verified: boolean
   worldid_verification_level: string | null
+  banner_url: string | null
   onchain_since: string | null
   created_at: string
   updated_at: string
@@ -252,11 +254,13 @@ export interface HackerHouse {
   application_form_url: string | null
   contract_type: HouseContractType | null
   sponsor_community_id: string | null
+  event_id: string | null
   event_name: string | null
   event_url: string | null
   event_start_date: string | null
   event_end_date: string | null
   event_timing: string[] | null
+  event_goers_only: boolean
   lat: number | null
   lng: number | null
   created_at: string
@@ -495,54 +499,21 @@ export interface EventRequest {
 
 /* ── Gates & Multi-Wallet ── */
 
-export type GateType =
-  | "talent_skills"
-  | "poap"
-  | "nft"
-  | "human_passport"
-  | "world_id"
-  | "blockchain_activity"
-
-export interface TalentSkillsGateConfig {
-  required_skills: string[]
-  min_count: number
-}
+export type GateType = "poap"
 
 export interface PoapGateConfig {
-  mode: "count" | "specific"
-  min_count?: number
-  event_ids?: string[]
+  mode: "specific"
+  event_ids: string[]
+  poap_names?: string[]
+  poap_images?: string[]
 }
 
-export interface NftGateConfig {
-  contracts: { address: string; chain_id: number; name: string }[]
-}
-
-export interface HumanPassportGateConfig {
-  required: true
-}
-
-export interface WorldIdGateConfig {
-  verification_level: "device" | "orb"
-}
-
-export interface BlockchainActivityGateConfig {
-  min_tx_count?: number
-  chains?: number[]
-  min_age_days?: number
-}
-
-export type GateConfig =
-  | TalentSkillsGateConfig
-  | PoapGateConfig
-  | NftGateConfig
-  | HumanPassportGateConfig
-  | WorldIdGateConfig
-  | BlockchainActivityGateConfig
+export type GateConfig = PoapGateConfig
 
 export interface HouseGate {
   id: string
-  hacker_house_id: string
+  entity_type: string
+  entity_id: string
   gate_type: GateType
   config: GateConfig
   created_at: string

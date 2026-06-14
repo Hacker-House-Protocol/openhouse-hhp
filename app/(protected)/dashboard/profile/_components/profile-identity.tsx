@@ -9,6 +9,7 @@ import type { ArchetypeId } from "@/lib/onboarding"
 
 interface ProfileIdentityProps {
   profile: UserProfile
+  action?: React.ReactNode
 }
 
 const ARCHETYPE_VARIANT: Record<
@@ -24,7 +25,7 @@ function truncateWallet(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-export function ProfileIdentity({ profile }: ProfileIdentityProps) {
+export function ProfileIdentity({ profile, action }: ProfileIdentityProps) {
   const archetypeData = ARCHETYPES.find((a) => a.id === profile.archetype)
   const archetypeVar = archetypeData?.colorVar ?? "--primary"
   const badgeVariant =
@@ -114,21 +115,16 @@ export function ProfileIdentity({ profile }: ProfileIdentityProps) {
               </Badge>
             )}
 
-            {profile.wallet_address && (
-              <p className="text-[11px] font-mono text-muted-foreground mt-1">
-                <span className="text-muted-foreground/40">⬡ </span>
-                {truncateWallet(profile.wallet_address)}
-              </p>
-            )}
+
           </div>
         </div>
 
         <Separator />
 
         {/* Bio */}
-        <div>
+        <div className="flex flex-col gap-3">
           {profile.bio ? (
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
               {profile.bio}
             </p>
           ) : (
@@ -136,6 +132,7 @@ export function ProfileIdentity({ profile }: ProfileIdentityProps) {
               No bio yet.
             </p>
           )}
+          {action && <div>{action}</div>}
         </div>
       </div>
     </Card>

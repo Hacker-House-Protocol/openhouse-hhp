@@ -1,30 +1,14 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-import { SKILLS_BY_ARCHETYPE } from "@/lib/onboarding"
+import { SkillCard } from "./skill-card"
 import type { UserProfile } from "@/lib/types"
-import type { ArchetypeId } from "@/lib/onboarding"
 
 interface ProfileSkillsProps {
   profile: UserProfile
 }
 
-const ARCHETYPE_VARIANT: Record<ArchetypeId, "visionary" | "strategist" | "builder"> = {
-  visionary: "visionary",
-  strategist: "strategist",
-  builder: "builder",
-}
-
 export function ProfileSkills({ profile }: ProfileSkillsProps) {
   const skills = profile.skills ?? []
-  const archetypeSkills =
-    profile.archetype && profile.archetype in SKILLS_BY_ARCHETYPE
-      ? SKILLS_BY_ARCHETYPE[profile.archetype as ArchetypeId]
-      : []
-  const badgeVariant =
-    profile.archetype && profile.archetype in ARCHETYPE_VARIANT
-      ? ARCHETYPE_VARIANT[profile.archetype as ArchetypeId]
-      : "secondary"
 
   return (
     <div className="flex flex-col gap-3">
@@ -42,19 +26,10 @@ export function ProfileSkills({ profile }: ProfileSkillsProps) {
       {skills.length === 0 ? (
         <p className="text-sm text-muted-foreground italic">No skills added yet.</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {skills.map((skill) => {
-            const isArchetypeSkill = archetypeSkills.includes(skill)
-            return (
-              <Badge
-                key={skill}
-                variant={isArchetypeSkill ? badgeVariant : "secondary"}
-                className="font-mono text-xs"
-              >
-                {skill}
-              </Badge>
-            )
-          })}
+        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+          {skills.map((skill) => (
+            <SkillCard key={skill} skill={skill} size="sm" />
+          ))}
         </div>
       )}
     </div>

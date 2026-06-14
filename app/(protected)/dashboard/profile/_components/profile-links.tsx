@@ -44,9 +44,14 @@ export function ProfileLinks({ profile }: ProfileLinksProps) {
                   {username}
                 </span>
               </div>
-              <span className="text-muted-foreground/40 group-hover:text-muted-foreground text-xs ml-2 transition-colors">
-                ↗
-              </span>
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                  verify soon
+                </span>
+                <span className="text-muted-foreground/40 group-hover:text-muted-foreground text-xs transition-colors">
+                  ↗
+                </span>
+              </div>
             </a>
           )
         })}

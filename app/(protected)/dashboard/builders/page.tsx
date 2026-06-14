@@ -12,7 +12,6 @@ import {
   ChevronDown,
   MapPin,
   Calendar,
-  Briefcase,
   ArrowRight,
   Star,
   X,
@@ -27,15 +26,51 @@ import { useFilteredCommunities, useJoinCommunity } from "@/services/api/communi
 import { ConnectButton } from "../_components/connect-button"
 import { CommunityCard } from "../_components/community-card"
 import { PageContainer } from "../_components/page-container"
+import { SkillCard } from "@/app/(protected)/dashboard/profile/_components/skill-card"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { ARCHETYPES } from "@/lib/onboarding"
+import { resolveSkill } from "@/lib/skill-icons"
 import type { UserProfile, SuggestedBuilder, Community, FriendshipWithUser } from "@/lib/types"
 
 type Tab = "builders" | "community"
+
+/* ── Skill icon strip — used in mini cards and swipe collapsed ── */
+function SkillIconRow({ skills, max = 4 }: { skills: string[]; max?: number }) {
+  const visible = skills.slice(0, max)
+  const rest = skills.length - max
+  if (visible.length === 0) return null
+  return (
+    <div className="flex items-center gap-1">
+      {visible.map((skill) => {
+        const def = resolveSkill(skill)
+        return (
+          <Tooltip key={skill}>
+            <TooltipTrigger asChild>
+              <div className="size-5 rounded-md bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
+                {def.emoji ? (
+                  <span className="text-[10px] leading-none">{def.icon}</span>
+                ) : (
+                  <img src={def.icon} alt={def.label} className="size-3.5 object-contain" />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-[10px] font-mono">{def.label}</p>
+            </TooltipContent>
+          </Tooltip>
+        )
+      })}
+      {rest > 0 && (
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">+{rest}</span>
+      )}
+    </div>
+  )
+}
 
 /* ── Pending Request Card ── */
 function PendingRequestCard({ friendship }: { friendship: FriendshipWithUser }) {
@@ -97,15 +132,15 @@ function PendingRequestCard({ friendship }: { friendship: FriendshipWithUser }) 
 function NetworkBuilderCard({
   builder,
   currentUserId,
-  badge,
 }: {
   builder: UserProfile | SuggestedBuilder
   currentUserId?: string
-  badge?: string
 }) {
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
   const displayName = builder.handle ? `@${builder.handle}` : "Anonymous"
-  const firstTag = (builder.talent_tags ?? [])[0] ?? (builder.skills ?? [])[0] ?? null
+  const allSkills = [
+    ...new Set([...(builder.talent_tags ?? []), ...(builder.skills ?? [])]),
+  ]
   const isOwnCard = currentUserId === builder.id
 
   return (
@@ -113,9 +148,9 @@ function NetworkBuilderCard({
       href={builder.handle ? `/dashboard/builders/${builder.handle}` : "#"}
       className="block w-full h-full bg-card border border-border rounded-lg p-4 hover:border-primary transition-colors"
     >
-      <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col items-center text-center gap-2">
         <div
-          className="w-12 h-12 rounded-full border-[3px] overflow-hidden mb-3"
+          className="w-12 h-12 rounded-full border-[3px] overflow-hidden"
           style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
         >
           {builder.avatar_url ? (
@@ -131,33 +166,17 @@ function NetworkBuilderCard({
             />
           )}
         </div>
-        <div className="flex items-center gap-1 mb-1">
+        <div className="flex items-center gap-1">
           <h3 className="font-display font-bold text-foreground text-sm">{displayName}</h3>
           {builder.is_verified && (
-            <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+            <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center shrink-0">
               <Check className="w-2.5 h-2.5 text-primary-foreground" />
             </div>
           )}
         </div>
-        {archetype && (
-          <span
-            className="px-2 py-0.5 rounded text-xs mb-2"
-            style={{
-              backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-              color: `var(${archetype.colorVar})`,
-            }}
-          >
-            {archetype.label}
-          </span>
-        )}
-        {firstTag && <p className="text-muted-foreground text-xs mb-1">{firstTag}</p>}
-        {badge && (
-          <span className="mt-2 px-2 py-0.5 bg-primary/20 text-primary text-xs rounded">
-            {badge}
-          </span>
-        )}
+        {allSkills.length > 0 && <SkillIconRow skills={allSkills} max={4} />}
         {!isOwnCard && (
-          <div className="mt-3 w-full" onClick={(e) => e.preventDefault()}>
+          <div className="w-full" onClick={(e) => e.preventDefault()}>
             <ConnectButton targetUserId={builder.id} />
           </div>
         )}
@@ -182,7 +201,15 @@ function BuildersSwipeCard({
   const startRef = useRef({ x: 0, y: 0 })
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
   const displayName = builder.handle ? `@${builder.handle}` : "Anonymous"
-  const firstSkill = (builder.talent_tags ?? [])[0] ?? (builder.skills ?? [])[0] ?? null
+  const bannerUrl = (builder as UserProfile).banner_url ?? null
+  const allSkills = [
+    ...new Set([...(builder.talent_tags ?? []), ...(builder.skills ?? [])]),
+  ]
+  const matchReasons = ("match_reasons" in builder ? builder.match_reasons : null) ?? []
+  const featuredPoaps = (() => {
+    const fp = (builder as UserProfile).featured_poaps ?? []
+    return (builder.poaps ?? []).filter((p) => fp.includes(p.id))
+  })()
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -242,6 +269,10 @@ function BuildersSwipeCard({
   const skipOpacity = Math.min(1, Math.max(0, -dragX / 150))
   const connectOpacity = Math.min(1, Math.max(0, dragX / 150))
 
+  const archetypeGradient = archetype
+    ? `linear-gradient(135deg, color-mix(in oklch, var(${archetype.colorVar}) 35%, transparent), var(--card))`
+    : "linear-gradient(135deg, color-mix(in oklch, var(--primary) 20%, transparent), var(--card))"
+
   return (
     <div
       className={cn("absolute inset-0 touch-none", isTop ? "z-10" : "z-0")}
@@ -257,62 +288,109 @@ function BuildersSwipeCard({
       onPointerUp={handlePointerUp}
     >
       <div className="h-full bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
+
+        {/* ── COLLAPSED VIEW ── */}
         {!isExpanded ? (
-          <div className="h-full flex flex-col">
-            <div className="relative flex-1 bg-linear-to-b from-primary/20 to-card flex items-center justify-center min-h-62.5">
-              <div
-                className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 overflow-hidden bg-muted"
-                style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
-              >
-                {builder.avatar_url ? (
-                  <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+          <div className="h-full flex flex-col overflow-y-auto">
+            {/* Banner + overlapping avatar */}
+            <div className="relative shrink-0">
+              <div className="h-36 w-full overflow-hidden">
+                {bannerUrl ? (
+                  <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div
-                    className="w-full h-full"
-                    style={{
-                      backgroundColor: archetype
-                        ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
-                        : "var(--muted)",
-                    }}
-                  />
+                  <div className="w-full h-full" style={{ background: archetypeGradient }} />
                 )}
+                <div className="absolute inset-0 bg-linear-to-t from-card/80 via-transparent to-transparent" />
               </div>
-              {builder.is_verified && (
-                <div className="absolute top-4 right-4 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <Check className="w-5 h-5 text-primary-foreground" />
+              {/* Avatar centered, half overlapping below banner */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10">
+                <div className="relative">
+                  <div
+                    className="w-24 h-24 rounded-full border-4 overflow-hidden bg-muted"
+                    style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
+                  >
+                    {builder.avatar_url ? (
+                      <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div
+                        className="w-full h-full"
+                        style={{
+                          backgroundColor: archetype
+                            ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
+                            : "var(--muted)",
+                        }}
+                      />
+                    )}
+                  </div>
+                  {builder.is_verified && (
+                    <div className="absolute bottom-0.5 right-0.5 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-card">
+                      <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                    </div>
+                  )}
                 </div>
-              )}
-              {archetype && (
-                <div
-                  className="absolute bottom-4 left-4 px-3 py-1 rounded-full text-sm font-medium"
-                  style={{
-                    backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-                    color: `var(${archetype.colorVar})`,
-                  }}
-                >
-                  {archetype.label}
-                </div>
-              )}
+              </div>
             </div>
 
-            <div className="p-6 flex flex-col">
-              <h3 className="font-display font-bold text-2xl text-foreground mb-1">{displayName}</h3>
-              <p className="text-muted-foreground text-sm mb-2">
-                {[builder.city, firstSkill].filter(Boolean).join(" · ") || "Builder"}
-              </p>
+            {/* Content — padded to clear avatar overhang */}
+            <div className="pt-14 px-5 pb-4 flex flex-col items-center text-center gap-3">
+              <div className="flex flex-col items-center gap-1.5">
+                <h3 className="font-display font-bold text-2xl text-foreground">{displayName}</h3>
+                {archetype && (
+                  <span
+                    className="px-3 py-0.5 rounded-full text-sm font-medium"
+                    style={{
+                      backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
+                      color: `var(${archetype.colorVar})`,
+                    }}
+                  >
+                    {archetype.label}
+                  </span>
+                )}
+              </div>
+
               {builder.bio && (
-                <p className="text-foreground/80 text-sm mb-4 line-clamp-2">{builder.bio}</p>
+                <p className="text-foreground/80 text-sm line-clamp-2">{builder.bio}</p>
               )}
-              {builder.onchain_since && (
-                <p className="font-mono text-muted-foreground text-xs mb-4">
-                  Onchain since {builder.onchain_since}
-                </p>
+
+              {/* Skill icons — prominent cards */}
+              {allSkills.length > 0 && (
+                <div className="flex gap-2 w-full justify-center">
+                  {allSkills.slice(0, 5).map((skill) => (
+                    <div key={skill} className="w-14 shrink-0">
+                      <SkillCard skill={skill} size="sm" />
+                    </div>
+                  ))}
+                  {allSkills.length > 5 && (
+                    <div className="w-14 shrink-0 aspect-square rounded-lg border border-dashed border-border/40 bg-muted/20 flex items-center justify-center">
+                      <span className="text-xs font-mono text-muted-foreground">+{allSkills.length - 5}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Match reason chips */}
+              {matchReasons.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {matchReasons.slice(0, 3).map((reason, i) => (
+                    <span
+                      key={i}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-mono"
+                      style={{
+                        background: `color-mix(in oklch, var(--primary) 12%, transparent)`,
+                        color: "var(--primary)",
+                        border: `1px solid color-mix(in oklch, var(--primary) 25%, transparent)`,
+                      }}
+                    >
+                      {reason}
+                    </span>
+                  ))}
+                </div>
               )}
 
               {isTop && (
                 <button
                   onClick={() => setIsExpanded(true)}
-                  className="flex items-center justify-center gap-2 text-primary text-sm mb-4 cursor-pointer"
+                  className="flex items-center justify-center gap-2 text-primary text-sm cursor-pointer"
                 >
                   <ChevronUp className="w-4 h-4 animate-bounce" />
                   Swipe up for more details
@@ -348,149 +426,137 @@ function BuildersSwipeCard({
             )}
           </div>
         ) : (
+
+        /* ── EXPANDED VIEW ── */
           <div className="h-full flex flex-col overflow-y-auto">
-            <div className="p-4 flex items-center gap-4 border-b border-border sticky top-0 bg-card z-10">
-              <div
-                className="w-16 h-16 rounded-full border-[3px] overflow-hidden shrink-0 bg-muted"
-                style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
-              >
-                {builder.avatar_url ? (
-                  <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
-                ) : (
+            {/* Sticky header: banner + avatar + name + archetype + close */}
+            <div className="sticky top-0 bg-card z-10">
+              <div className="relative">
+                <div className="h-20 w-full overflow-hidden">
+                  {bannerUrl ? (
+                    <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full" style={{ background: archetypeGradient }} />
+                  )}
+                  <div className="absolute inset-0 bg-linear-to-t from-card via-transparent to-transparent" />
+                </div>
+                {/* Avatar half-overlapping */}
+                <div className="absolute bottom-0 left-4 translate-y-1/2 z-10">
                   <div
-                    className="w-full h-full"
-                    style={{
-                      backgroundColor: archetype
-                        ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
-                        : "var(--muted)",
-                    }}
-                  />
-                )}
+                    className="w-14 h-14 rounded-full border-[3px] overflow-hidden bg-muted"
+                    style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
+                  >
+                    {builder.avatar_url ? (
+                      <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div
+                        className="w-full h-full"
+                        style={{
+                          backgroundColor: archetype
+                            ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
+                            : "var(--muted)",
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {/* Close */}
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-display font-bold text-xl text-foreground">{displayName}</h3>
-                  {builder.is_verified && (
-                    <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                      <Check className="w-3 h-3 text-primary-foreground" />
-                    </div>
+              {/* Name + archetype row, spaced for avatar */}
+              <div className="pt-9 px-4 pb-3 border-b border-border flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-bold text-xl text-foreground truncate">{displayName}</h3>
+                    {builder.is_verified && (
+                      <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center shrink-0">
+                        <Check className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  {archetype && (
+                    <span
+                      className="inline-block px-2 py-0.5 rounded text-xs mt-0.5"
+                      style={{
+                        backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
+                        color: `var(${archetype.colorVar})`,
+                      }}
+                    >
+                      {archetype.label}
+                    </span>
                   )}
                 </div>
-                {archetype && (
-                  <span
-                    className="px-2 py-0.5 rounded text-xs"
-                    style={{
-                      backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-                      color: `var(${archetype.colorVar})`,
-                    }}
-                  >
-                    {archetype.label}
-                  </span>
-                )}
               </div>
-              <button
-                onClick={() => setIsExpanded(false)}
-                className="p-2 rounded-full bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </button>
             </div>
 
-            <div className="p-6 flex-1">
+            <div className="p-5 flex-1 flex flex-col gap-6">
+              {/* About */}
               {builder.bio && (
-                <div className="mb-6">
+                <div>
                   <h4 className="font-display font-bold text-sm text-foreground mb-2">About</h4>
                   <p className="text-foreground/80 text-sm">{builder.bio}</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {builder.city && (
-                  <div className="bg-background rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                      <MapPin className="w-3 h-3" />
-                      Location
+              {/* Info — location + onchain only */}
+              {(builder.city || builder.onchain_since) && (
+                <div className="grid grid-cols-2 gap-3">
+                  {builder.city && (
+                    <div className="bg-background rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                        <MapPin className="w-3 h-3" />
+                        Location
+                      </div>
+                      <p className="text-foreground text-sm font-medium">{builder.city}</p>
                     </div>
-                    <p className="text-foreground text-sm font-medium">{builder.city}</p>
-                  </div>
-                )}
-                {firstSkill && (
-                  <div className="bg-background rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                      <Briefcase className="w-3 h-3" />
-                      Skill
+                  )}
+                  {builder.onchain_since && (
+                    <div className="bg-background rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                        <Calendar className="w-3 h-3" />
+                        Onchain Since
+                      </div>
+                      <p className="text-foreground text-sm font-medium">{builder.onchain_since}</p>
                     </div>
-                    <p className="text-foreground text-sm font-medium">{firstSkill}</p>
-                  </div>
-                )}
-                {builder.onchain_since && (
-                  <div className="bg-background rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                      <Calendar className="w-3 h-3" />
-                      Onchain Since
-                    </div>
-                    <p className="text-foreground text-sm font-medium">{builder.onchain_since}</p>
-                  </div>
-                )}
-                <div className="bg-background rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                    <Users className="w-3 h-3" />
-                    Status
-                  </div>
-                  <p className="text-foreground text-sm font-medium">
-                    {builder.is_verified ? "Verified" : "Unverified"}
-                  </p>
+                  )}
                 </div>
-              </div>
+              )}
 
-              {builder.skills && builder.skills.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-display font-bold text-sm text-foreground mb-2">Skills</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {builder.skills.map((skill, i) => (
-                      <span key={i} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs">
-                        {skill}
-                      </span>
+              {/* Skills — icon cards */}
+              {allSkills.length > 0 && (
+                <div>
+                  <h4 className="font-display font-bold text-sm text-foreground mb-3">Skills</h4>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {allSkills.map((skill) => (
+                      <SkillCard key={skill} skill={skill} size="xs" />
                     ))}
                   </div>
                 </div>
               )}
 
-              {builder.talent_tags && builder.talent_tags.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-display font-bold text-sm text-foreground mb-2">Verified Skills</h4>
-                  <p className="text-[10px] font-mono text-muted-foreground mb-2">via Talent Protocol</p>
+              {/* Featured POAPs */}
+              {featuredPoaps.length > 0 && (
+                <div>
+                  <h4 className="font-display font-bold text-sm text-foreground mb-2">POAPs</h4>
                   <div className="flex flex-wrap gap-2">
-                    {builder.talent_tags.map((tag, i) => (
-                      <span key={i} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs font-mono">
-                        {tag}
-                      </span>
+                    {featuredPoaps.map((poap) => (
+                      <div key={poap.id} className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
+                        <img src={poap.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        <span className="text-xs font-mono text-foreground">{poap.name}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {(() => {
-                const fp = (builder as UserProfile).featured_poaps ?? []
-                const featuredPoapItems = (builder.poaps ?? []).filter((p) => fp.includes(p.id))
-                if (featuredPoapItems.length === 0) return null
-                return (
-                  <div className="mb-6">
-                    <h4 className="font-display font-bold text-sm text-foreground mb-2">POAPs</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {featuredPoapItems.map((poap) => (
-                        <div key={poap.id} className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-full">
-                          <img src={poap.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
-                          <span className="text-xs font-mono text-foreground">{poap.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {(builder as UserProfile).seeking_skills && (builder as UserProfile).seeking_skills.length > 0 && (
-                <div className="mb-6">
+              {/* Seeking */}
+              {(builder as UserProfile).seeking_skills?.length > 0 && (
+                <div>
                   <h4 className="font-display font-bold text-sm text-foreground mb-2">Looking for</h4>
                   <div className="flex flex-wrap gap-2">
                     {(builder as UserProfile).seeking_skills.map((skill, i) => (
@@ -502,8 +568,9 @@ function BuildersSwipeCard({
                 </div>
               )}
 
+              {/* Languages */}
               {builder.languages && builder.languages.length > 0 && (
-                <div className="mb-6">
+                <div>
                   <h4 className="font-display font-bold text-sm text-foreground mb-2">Languages</h4>
                   <div className="flex flex-wrap gap-2">
                     {builder.languages.map((lang, i) => (
@@ -762,16 +829,11 @@ export default function BuildersPage() {
   } = useFilteredCommunities({})
   const communities = communityData?.pages.flatMap((p) => p.communities) ?? []
   const myCommunities = communities.filter((c) => c.is_member)
-  // Featured stays visible even after a left swipe — curated content is never
-  // hidden by discovery rejections
   const featuredCommunities = communities.filter((c) => !c.is_member && c.is_featured)
   const otherCommunities = communities.filter(
     (c) => !c.is_member && !c.is_featured && !swipedCommunityIds.has(c.id),
   )
 
-  // Builders — swiped ids hide cards in BOTH views for the session
-  // (refetch-safe: after connecting, the suggestions list shrinks
-  // server-side without skipping cards)
   const visibleSuggestedBuilders = (suggestedBuilders ?? []).filter(
     (b) => !swipedBuilderIds.has(b.id),
   )
@@ -784,7 +846,6 @@ export default function BuildersPage() {
     setSwipedBuilderIds((prev) => new Set(prev).add(builderId))
   }
 
-  // Community swipe — only non-members, minus the ones swiped this session
   const remainingCommunityCards = communities.filter(
     (c) => !c.is_member && !swipedCommunityIds.has(c.id),
   )
@@ -825,7 +886,7 @@ export default function BuildersPage() {
       </Tabs>
 
       {/* ══════════════════════════════════════════════ */}
-      {/* ── HOMIES TAB ── */}
+      {/* ── BUILDERS TAB ── */}
       {/* ══════════════════════════════════════════════ */}
       {activeTab === "builders" && (
         <>
@@ -947,7 +1008,6 @@ export default function BuildersPage() {
                         <NetworkBuilderCard
                           builder={builder}
                           currentUserId={profile?.id}
-                          badge={builder.match_reasons?.[0]}
                         />
                       </RailItem>
                     ))}
