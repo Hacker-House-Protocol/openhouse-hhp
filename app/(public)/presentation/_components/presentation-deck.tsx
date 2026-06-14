@@ -16,6 +16,8 @@ import { SlideProblem } from "./slides/slide-problem"
 import { SlideSolution } from "./slides/slide-solution"
 import { SlideHowItWorks } from "./slides/slide-how-it-works"
 import { SlideContract } from "./slides/slide-contract"
+import { SlideWalletArchitecture } from "./slides/slide-wallet-architecture"
+import { SlidePrivacy } from "./slides/slide-privacy"
 import { SlideFeatures } from "./slides/slide-features"
 import { SlideAudience } from "./slides/slide-audience"
 import { SlideBusiness } from "./slides/slide-business"
@@ -30,6 +32,8 @@ const SLIDES = [
   SlideSolution,
   SlideHowItWorks,
   SlideContract,
+  SlideWalletArchitecture,
+  SlidePrivacy,
   SlideFeatures,
   SlideAudience,
   SlideBusiness,
@@ -102,6 +106,14 @@ export function PresentationDeck() {
           Hacker House Protocol
         </span>
       </Link>
+
+      {/* Slide counter — hidden on the cover */}
+      {selected > 0 && (
+        <span className="pointer-events-none fixed right-6 top-5 z-40 font-mono text-xs tracking-[0.2em] text-[#7B7A8E]">
+          {String(selected + 1).padStart(2, "0")} /{" "}
+          {String(count).padStart(2, "0")}
+        </span>
+      )}
 
       <Carousel
         setApi={setApi}

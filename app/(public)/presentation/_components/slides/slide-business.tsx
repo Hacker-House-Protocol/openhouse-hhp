@@ -8,9 +8,9 @@ const streams = [
     color: "#6EE76E",
   },
   {
-    metric: "GMX",
-    title: "Staking yield",
-    body: "Locked funds earn yield while they wait for release.",
+    metric: "Yield",
+    title: "Staking adapters",
+    body: "Locked funds earn yield via pluggable adapters (10% APY testnet, GMX V2 mainnet). Routed to host or builders, set at creation.",
     color: "#8B78E6",
   },
   {
@@ -24,7 +24,6 @@ const streams = [
 export function SlideBusiness() {
   return (
     <SlideShell
-      index={8}
       eyebrow="Business Model"
       title="The protocol charges whoever wants access to builders — not the builders."
     >
