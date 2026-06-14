@@ -10,6 +10,8 @@ import type {
   HackerHouseListResponse,
   Application,
   ApplicationWithApplicant,
+  Homie,
+  GateCheckResult,
 } from "@/lib/types"
 import type {
   CreateHackerHouseInput,
@@ -185,6 +187,66 @@ export const useReviewHackerHouseApplication = (id: string) => {
   })
 }
 
+export const useHackerHouseHomies = (id: string) =>
+  useAppQuery<Homie[]>({
+    fetcher: async () => {
+      const { homies } = await genericAuthRequest<{ homies: Homie[] }>(
+        "get",
+        `/api/hacker-houses/${id}/homies`
+      )
+      return homies ?? []
+    },
+    queryKey: [queryKeys.hackerHouseHomies, id],
+  })
+
+export const useInviteStatus = (id: string, enabled = true) =>
+  useAppQuery<{ invited: boolean }>({
+    fetcher: async () => {
+      return genericAuthRequest<{ invited: boolean }>("get", `/api/hacker-houses/${id}/invite-status`)
+    },
+    queryKey: [queryKeys.hackerHouse, id, "invite-status"],
+    enabled,
+  })
+
+export const useInviteToHackerHouse = (id: string) => {
+  const queryClient = useQueryClient()
+  return useAppMutation<{ builder_id: string }, { invited: boolean }>({
+    fetcher: async (input) => {
+      return genericAuthRequest<{ invited: boolean }>(
+        "post",
+        `/api/hacker-houses/${id}/invite`,
+        input,
+      )
+    },
+    options: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [queryKeys.notifications] })
+        queryClient.invalidateQueries({ queryKey: [queryKeys.unreadNotificationCount] })
+        queryClient.invalidateQueries({ queryKey: [queryKeys.hackerHouseHomies, id] })
+      },
+    },
+  })
+}
+
+export const useRevokeHackerHouseInvite = (id: string) => {
+  const queryClient = useQueryClient()
+  return useAppMutation<{ builder_id: string }, { revoked: boolean }>({
+    fetcher: async (input) => {
+      return genericAuthRequest<{ revoked: boolean }>(
+        "delete",
+        `/api/hacker-houses/${id}/invite`,
+        input,
+      )
+    },
+    options: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [queryKeys.notifications] })
+        queryClient.invalidateQueries({ queryKey: [queryKeys.hackerHouseHomies, id] })
+      },
+    },
+  })
+}
+
 export const useUploadHackerHouseImage = () =>
   useAppMutation<File, { image_url: string }>({
     fetcher: async (file: File) => {
@@ -192,4 +254,18 @@ export const useUploadHackerHouseImage = () =>
       formData.append("file", file)
       return genericAuthRequest<{ image_url: string }>("post", "/api/hacker-houses/upload-image", formData)
     },
+  })
+
+interface GateCheckResponse {
+  qualified: boolean
+  results: GateCheckResult[]
+}
+
+export const useGateCheck = (id: string, enabled = true) =>
+  useAppQuery<GateCheckResponse>({
+    fetcher: async () => {
+      return genericAuthRequest<GateCheckResponse>("get", `/api/hacker-houses/${id}/gates/check`)
+    },
+    queryKey: [queryKeys.gateCheck, id],
+    enabled,
   })

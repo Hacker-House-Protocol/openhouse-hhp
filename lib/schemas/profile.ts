@@ -30,6 +30,10 @@ export const patchProfileSchema = z.object({
     image_url: z.string(),
     event_date: z.string(),
   })).optional(),
+  featured_poaps: z.array(z.string()).optional(),
+  seeking_skills: z.array(z.string()).optional(),
+  banner_url: z.string().optional(),
+  matching_cities: z.array(z.string()).optional(),
   onboarding_step: z
     .enum(["archetype", "identity", "skills", "context", "complete"])
     .optional(),

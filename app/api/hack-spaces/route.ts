@@ -3,6 +3,7 @@ import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
 import { createHackSpaceSchema } from "@/lib/schemas/hack-space"
 import { geocodeAndUpdate } from "@/lib/geocode"
+import { saveGates } from "@/lib/gate-helpers"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { has_event, ...fields } = parsed.data
+  const { has_event, gates, ...fields } = parsed.data
 
   const insertData = {
     creator_id: user.id,
@@ -168,9 +169,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Database error" }, { status: 500 })
   }
 
+  // Save gates if provided
+  if (gates?.length) {
+    await saveGates("hack_space", data.id, gates)
+  }
+
   if (insertData.city && insertData.country) {
     geocodeAndUpdate("hack_spaces", data.id, insertData.city as string, insertData.country as string)
   }
 
-  return NextResponse.json({ hack_space: data }, { status: 201 })
+  return NextResponse.json({ hack_space: { ...data, gates: gates ?? [] } }, { status: 201 })
 }

@@ -9,13 +9,22 @@ import { cn, parseLocalDate } from "@/lib/utils"
 import {
   useApplyToHackerHouse,
   useHackerHouse,
-  useUpdateHackerHouse,
+  useHackerHouseHomies,
+  useInviteStatus,
+  useRevokeHackerHouseInvite,
+  useGateCheck,
 } from "@/services/api/hacker-houses"
 import { useProfile } from "@/services/api/profile"
+import { useKernelWallet } from "@/hooks/use-kernel-wallet"
+import { useBuilderSpot } from "@/hooks/use-builder-spot"
+import { useEscrowState } from "@/hooks/use-escrow-state"
+import { usePendingYield } from "@/hooks/use-pending-yield"
+import { formatUnits } from "viem"
 import {
   Briefcase,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -29,18 +38,22 @@ import {
   PenLine,
   Shield,
   Sparkles,
+  TrendingUp,
   Users,
   Utensils,
   Wallet,
   Wifi,
   X,
+  Zap,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { use, useState } from "react"
+import { use, useState, useEffect, useRef } from "react"
+import { SkillCard } from "@/app/(protected)/dashboard/profile/_components/skill-card"
 import { PageContainer } from "../../_components/page-container"
 import { BackButton } from "../../../_components/back-button"
 import { HackerHouseApplicationManager } from "./_components/hacker-house-application-manager"
+import { InviteBuilderModal } from "./_components/invite-builder-modal"
 
 const MiniMap = dynamic(() => import("@/components/mini-map").then((m) => m.MiniMap), {
   ssr: false,
@@ -157,8 +170,8 @@ function formatDateRange(start: string, end: string): string {
   return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
 }
 
-function getCostDisplay(modality: HouseModality, capacity: number, pricePerPerson: number | null) {
-  const price = pricePerPerson ?? 0
+function getCostDisplay(modality: HouseModality, capacity: number, pricePerPerson: number | null, depositAmountUsdc: number | null) {
+  const price = depositAmountUsdc ?? pricePerPerson ?? 0
   switch (modality) {
     case "paid":
       return { costPerPerson: price > 0 ? `${price} USDC` : "TBD", totalAmount: price > 0 ? `${price * capacity} USDC` : "TBD", amountRaised: "TBD" }
@@ -177,8 +190,35 @@ export default function HackerHouseDetailPage({
   const { id } = use(params)
   const { data: hackerHouse, isLoading } = useHackerHouse(id)
   const { data: profile } = useProfile({ enabled: true })
+  const { connect, kernelAddress, isReady: walletReady } = useKernelWallet()
+  const escrowAddress = (hackerHouse?.escrow_address ?? null) as `0x${string}` | null
+
+  // Auto-connect wallet when page loads and house has an escrow — needed to check deposit status
+  const connectAttempted = useRef(false)
+  useEffect(() => {
+    if (escrowAddress && !walletReady && !connectAttempted.current) {
+      connectAttempted.current = true
+      connect()
+    }
+  }, [escrowAddress, walletReady, connect])
+
+  const { data: builderSpot } = useBuilderSpot({ escrowAddress, builderAddress: kernelAddress })
+  const { data: escrowState } = useEscrowState(escrowAddress)
+  const hasGmxYield = hackerHouse?.yield_mode === "gmx"
+  const { data: yieldData } = usePendingYield(escrowAddress, hasGmxYield)
   const apply = useApplyToHackerHouse(id)
-  const updateHackerHouse = useUpdateHackerHouse(id)
+  const { data: homies } = useHackerHouseHomies(id)
+  const revokeInvite = useRevokeHackerHouseInvite(id)
+
+  // Must be called before any early returns (Rules of Hooks)
+  const isInviteOnly = hackerHouse?.application_type === "invite_only"
+  const isOwnerEarly = profile?.id != null && profile.id === hackerHouse?.creator?.id
+  const { data: inviteStatus } = useInviteStatus(id, isInviteOnly === true && !isOwnerEarly)
+
+  // Gate check — only when house has gates and user is not the owner
+  const hasGates = (hackerHouse?.gates?.length ?? 0) > 0
+  const { data: gateCheck } = useGateCheck(id, hasGates && !isOwnerEarly)
+
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showGallery, setShowGallery] = useState(false)
   const [showApplyForm, setShowApplyForm] = useState(false)
@@ -221,18 +261,51 @@ export default function HackerHouseDetailPage({
   }
 
   const isOwner = profile?.id === hackerHouse.creator.id
-  // hasPaid: user has an accepted application (applies to creator too — they must pay their share)
-  const hasPaid = (hackerHouse.participants ?? []).some((p) => p.id === profile?.id)
+
+  // Gate: invite_only houses are only visible to the owner, invited, or paid builders
+  const isParticipant = (hackerHouse.participants ?? []).some((p) => p.id === profile?.id)
+  if (isInviteOnly && !isOwner && !isParticipant && inviteStatus !== undefined && !inviteStatus?.invited) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Lock className="size-10 text-amber-400" />
+        <p className="text-foreground font-display font-bold text-xl">Invite Only</p>
+        <img src="/cypher-kitten/cat-crying.gif" alt="Crying kitten" className="size-32" />
+        <p className="text-muted-foreground text-sm font-mono text-center max-w-xs">
+          This Hacker House is invite only. You need an invitation from the host to view details.
+        </p>
+        <Link
+          href="/dashboard/hacker-houses"
+          className="text-primary font-mono text-sm hover:underline"
+        >
+          ← Back to Hacker Houses
+        </Link>
+      </div>
+    )
+  }
+
+  // hasPaid: DB participants (old flow) OR on-chain escrow deposit (web3 flow)
+  // If escrow was cancelled or released, deposits were refunded/released — builder no longer "has paid"
+  // Also check DB status as fallback when on-chain reads are rate-limited
+  const escrowCancelled = escrowState?.isCancelled ?? false
+  const escrowReleased = escrowState?.isReleased ?? false
+  const houseFinished = hackerHouse.status === "finished"
+  const hasPaid =
+    !escrowCancelled && !escrowReleased && !houseFinished && (
+      (hackerHouse.participants ?? []).some((p) => p.id === profile?.id) ||
+      !!builderSpot?.hasDeposited
+    )
   const isAccepted = hasPaid || isOwner
   const modeCfg = MODE_CONFIG[hackerHouse.modality] ?? MODE_CONFIG.paid
   const statusCfg = STATUS_CONFIG[hackerHouse.status as HouseStatus] ?? STATUS_CONFIG.open
-  const canApply = !isOwner && hackerHouse.status === "open"
+  const isInvited = isOwner || !isInviteOnly || inviteStatus?.invited === true
+  const gatesBlocking = hasGates && gateCheck != null && !gateCheck.qualified
+  const canApply = !isOwner && hackerHouse.status === "open" && !gatesBlocking
   const allParticipants = [hackerHouse.creator, ...(hackerHouse.participants ?? [])].filter(
     (p, i, arr) => arr.findIndex((x) => x.id === p.id) === i,
   )
-  const filledCount = hackerHouse.participants_count
+  const filledCount = escrowState ? Number(escrowState.spotsFilledCount) : hackerHouse.participants_count
   const progress = hackerHouse.capacity > 0 ? Math.round((filledCount / hackerHouse.capacity) * 100) : 0
-  const costInfo = getCostDisplay(hackerHouse.modality, hackerHouse.capacity, hackerHouse.price_per_person)
+  const costInfo = getCostDisplay(hackerHouse.modality, hackerHouse.capacity, hackerHouse.price_per_person, hackerHouse.deposit_amount_usdc)
   const images = hackerHouse.images.length > 0
     ? hackerHouse.images
     : ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop"]
@@ -246,10 +319,6 @@ export default function HackerHouseDetailPage({
   }
   function prevImage() {
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
-  }
-
-  function handleStatusChange(newStatus: HouseStatus) {
-    updateHackerHouse.mutate({ status: newStatus })
   }
 
   function handleCopyLink() {
@@ -404,6 +473,28 @@ export default function HackerHouseDetailPage({
             </p>
           </div>
 
+          {/* Cancelled banner */}
+          {houseFinished && escrowAddress && (
+            <div className="mb-6 p-4 bg-strategist/10 border border-strategist/30 rounded-xl flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-5 text-strategist shrink-0" />
+                <p className="text-foreground font-medium text-sm">House cancelled — all builders refunded</p>
+              </div>
+              <p className="text-xs text-muted-foreground font-mono">
+                {hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person ?? 0} USDC returned to each builder&apos;s ZeroDev wallet.
+              </p>
+              <a
+                href={`https://sepolia.arbiscan.io/address/${escrowAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-strategist hover:underline font-mono w-fit"
+              >
+                <ExternalLink className="size-3" />
+                Verify on Arbiscan
+              </a>
+            </div>
+          )}
+
           {/* Owner actions */}
           {isOwner && (
             <div className="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-border">
@@ -422,28 +513,19 @@ export default function HackerHouseDetailPage({
                 {linkCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                 {linkCopied ? "Copied!" : "Share link"}
               </Button>
-              {(hackerHouse.status === "open" || hackerHouse.status === "full") && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-mono text-xs gap-1.5 rounded-full"
-                  onClick={() => handleStatusChange("active")}
-                  disabled={updateHackerHouse.isPending}
-                >
-                  <Sparkles className="size-3.5" />
-                  Mark as active
-                </Button>
-              )}
-              {hackerHouse.status === "active" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-mono text-xs gap-1.5 rounded-full"
-                  onClick={() => handleStatusChange("finished")}
-                  disabled={updateHackerHouse.isPending}
-                >
-                  Mark as finished
-                </Button>
+              <InviteBuilderModal
+                hackerHouseId={id}
+                participantIds={allParticipants.map((p) => p.id)}
+                homies={homies ?? []}
+                capacity={hackerHouse.capacity}
+              />
+              {escrowAddress && (
+                <Link href={`/dashboard/hacker-houses/${id}/payment`}>
+                  <Button variant="outline" size="sm" className="font-mono text-xs gap-1.5 rounded-full">
+                    <Wallet className="size-3.5" />
+                    Manage Escrow
+                  </Button>
+                </Link>
               )}
             </div>
           )}
@@ -542,7 +624,7 @@ export default function HackerHouseDetailPage({
                 {hackerHouse.modality === "paid" && (
                   <>
                     <p className="text-builder-archetype font-bold">
-                      {filledCount * (hackerHouse.price_per_person ?? 0)} USDC
+                      {filledCount * (hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person ?? 0)} USDC
                     </p>
                     <p className="text-muted-foreground text-xs">of {costInfo.totalAmount}</p>
                   </>
@@ -553,7 +635,7 @@ export default function HackerHouseDetailPage({
                 {hackerHouse.modality === "staking" && (
                   <>
                     <p className="text-builder-archetype font-bold">
-                      {filledCount * (hackerHouse.price_per_person ?? 0)} USDC staked
+                      {filledCount * (hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person ?? 0)} USDC staked
                     </p>
                     <p className="text-muted-foreground text-xs">of {costInfo.totalAmount}</p>
                   </>
@@ -591,6 +673,70 @@ export default function HackerHouseDetailPage({
               )}
             </div>
           </section>
+
+          {/* ── Live Yield ── */}
+          {hasGmxYield && escrowAddress && (
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
+                  <TrendingUp className="size-4 text-strategist" />
+                  Live Yield
+                </h2>
+                <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-sm border border-strategist/50 text-strategist bg-strategist/10 font-mono">
+                  <span className="size-1.5 rounded-full bg-strategist animate-pulse inline-block" />
+                  GMX
+                </span>
+              </div>
+              <div className="bg-card border border-strategist/30 rounded-xl p-5 flex flex-col gap-4">
+                {yieldData ? (
+                  <>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-muted-foreground text-xs font-mono mb-1">Total accrued</p>
+                        <p className="font-display font-bold text-3xl text-foreground">
+                          {Number(formatUnits(yieldData.pendingYield, 6)) > 0
+                            ? `${Number(formatUnits(yieldData.pendingYield, 6)).toFixed(4)} USDC`
+                            : "Accruing…"}
+                        </p>
+                      </div>
+                      {Number(formatUnits(yieldData.pendingYield, 6)) > 0 && (
+                        <p className="text-muted-foreground text-xs font-mono pb-1">updating live</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 pt-3 border-t border-border">
+                      {yieldData.yieldGoesToBuilders ? (
+                        <>
+                          <div className="size-8 bg-builder-archetype/20 rounded-full flex items-center justify-center shrink-0">
+                            <Users className="size-4 text-builder-archetype" />
+                          </div>
+                          <div>
+                            <p className="text-foreground text-sm font-medium">Goes to builders</p>
+                            {Number(formatUnits(yieldData.pendingYield, 6)) > 0 && yieldData.filledCount > 0n && (
+                              <p className="text-muted-foreground text-xs font-mono">
+                                ~{Number(formatUnits(yieldData.perBuilderYield, 6)).toFixed(4)} USDC per builder
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="size-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
+                            <Wallet className="size-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-foreground text-sm font-medium">Goes to host</p>
+                            <p className="text-muted-foreground text-xs font-mono">Distributed at release</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-20 animate-pulse" />
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ── Self Check-in ── */}
           {(() => {
@@ -636,21 +782,34 @@ export default function HackerHouseDetailPage({
           })()}
 
           {/* ── Added Hacker Homies ── */}
-          <section className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-bold text-lg text-foreground">Added Hacker Homies</h2>
-              <span className="text-muted-foreground text-sm">{allParticipants.length} hackers</span>
+          {(() => {
+            const isOpen = hackerHouse.application_type === "open"
+            const showPrivacy = !isOpen && !isAccepted && !isOwner
+            return (
+          <section className="mb-8 relative">
+            {showPrivacy && (
+              <div className="absolute inset-0 z-10 rounded-xl backdrop-blur-sm bg-card/40 flex flex-col items-center justify-center gap-2">
+                <Lock className="size-5 text-muted-foreground" />
+                <p className="text-xs font-mono text-muted-foreground text-center px-4">
+                  {hackerHouse.application_type === "invite_only"
+                    ? "Invite only — join to see who's inside"
+                    : "Pass the gates to see who's inside"}
+                </p>
+              </div>
+            )}
+            <div className={cn("flex items-center justify-between mb-4", showPrivacy && "select-none")}>
+              <h2 className="font-display font-bold text-lg text-foreground">Hacker Homies</h2>
+              <span className="text-muted-foreground text-sm">{homies?.length ?? 0} hackers</span>
             </div>
 
             <div className="flex flex-col gap-3">
-              {allParticipants.map((p, i) => {
-                const archetype = ARCHETYPES.find((a) => a.id === p.archetype)
-                const isCreator = p.id === hackerHouse.creator.id
-                // Only show paid/accepted badge if they actually have an accepted application
-                const hasPaidRecord = (hackerHouse.participants ?? []).some((pp) => pp.id === p.id)
+              {(homies ?? []).map((h) => {
+                const archetype = ARCHETYPES.find((a) => a.id === h.archetype)
+                const isPaid = h.status === "paid"
+                const isRefunded = isPaid && (escrowCancelled || houseFinished)
                 return (
                   <div
-                    key={p.id ?? i}
+                    key={h.id}
                     className="flex items-center justify-between bg-card border border-border rounded-xl p-4"
                   >
                     <div className="flex items-center gap-3">
@@ -660,22 +819,22 @@ export default function HackerHouseDetailPage({
                           borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)",
                         }}
                       >
-                        {p.avatar_url ? (
+                        {h.avatar_url ? (
                           <img
-                            src={p.avatar_url}
-                            alt={p.handle ?? "participant"}
+                            src={h.avatar_url}
+                            alt={h.handle ?? "participant"}
                             className="w-full h-full object-cover"
                           />
                         ) : (
                           <span className="text-sm font-mono text-muted-foreground">
-                            {p.handle?.charAt(0)?.toUpperCase() ?? "?"}
+                            {h.handle?.charAt(0)?.toUpperCase() ?? "?"}
                           </span>
                         )}
                       </div>
                       <div>
                         <p className="font-medium text-foreground">
-                          @{p.handle ?? "anon"}
-                          {isCreator && (
+                          @{h.handle ?? "anon"}
+                          {h.is_creator && (
                             <span className="ml-2 text-xs text-primary font-mono">Host</span>
                           )}
                         </p>
@@ -686,20 +845,44 @@ export default function HackerHouseDetailPage({
                         )}
                       </div>
                     </div>
-                    <div className="text-right flex flex-col items-end gap-0.5">
-                      {hasPaidRecord ? (
-                        <>
-                          {hackerHouse.modality !== "free" && (hackerHouse.price_per_person ?? 0) > 0 && (
-                            <span className="text-sm font-bold text-foreground">
-                              {hackerHouse.price_per_person} USDC
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1 text-xs font-mono text-[#6EE76E]">
-                            <Check className="size-3" /> {hackerHouse.modality === "free" ? "Accepted" : "Paid"}
+                    <div className="flex items-center gap-2">
+                      <div className="text-right flex flex-col items-end gap-0.5">
+                        {isRefunded ? (
+                          <span className="flex items-center gap-1 text-xs font-mono text-strategist">
+                            Refunded
                           </span>
-                        </>
-                      ) : (
-                        <span className="text-xs font-mono text-muted-foreground">Pending</span>
+                        ) : isPaid ? (
+                          <>
+                            {hackerHouse.modality !== "free" && (hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person ?? 0) > 0 && (
+                              <span className="text-sm font-bold text-foreground">
+                                {hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person} USDC
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-xs font-mono text-[#6EE76E]">
+                              <Check className="size-3" /> Paid
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-xs font-mono text-primary">Invited</span>
+                        )}
+                      </div>
+                      {isOwner && !h.is_creator && (
+                        <button
+                          type="button"
+                          title={isPaid ? "Cannot revoke — builder already paid" : "Revoke invitation"}
+                          disabled={isPaid || revokeInvite.isPending}
+                          onClick={() => {
+                            if (!isPaid) revokeInvite.mutate({ builder_id: h.id })
+                          }}
+                          className={cn(
+                            "size-7 rounded-full flex items-center justify-center border transition-all shrink-0",
+                            isPaid
+                              ? "border-border text-muted-foreground/30 cursor-not-allowed"
+                              : "border-border text-muted-foreground hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10 cursor-pointer",
+                          )}
+                        >
+                          <X className="size-3.5" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -707,6 +890,8 @@ export default function HackerHouseDetailPage({
               })}
             </div>
           </section>
+            )
+          })()}
 
           {/* ── Who this is for ── */}
           {hackerHouse.profile_sought.length > 0 && (
@@ -721,6 +906,124 @@ export default function HackerHouseDetailPage({
                     {profile}
                   </span>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── POAP Gate ── */}
+          {hasGates && (() => {
+            const poapGate = hackerHouse.gates!.find((g) => g.gate_type === "poap")
+            const config = poapGate?.config as { event_ids?: string[]; poap_names?: string[]; poap_images?: string[] } | undefined
+            if (!config?.event_ids?.length) return null
+            const checkResult = gateCheck?.results?.find((r) => r.gate_type === "poap")
+            const passed = checkResult?.passed
+
+            return (
+              <section className="mb-8">
+                <h2 className="font-display font-bold text-lg text-foreground mb-4 flex items-center gap-2">
+                  <Shield className="size-4 text-primary" />
+                  POAP Required
+                  {passed !== undefined && (
+                    <span className={cn(
+                      "text-xs font-mono px-2 py-0.5 rounded-full ml-auto",
+                      passed ? "bg-[#6EE76E]/10 text-[#6EE76E]" : "bg-destructive/10 text-destructive",
+                    )}>
+                      {passed ? "Qualified" : "Required"}
+                    </span>
+                  )}
+                </h2>
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <p className="text-xs text-muted-foreground font-mono mb-4">
+                    You need at least one of these POAPs to join
+                  </p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {(config?.event_ids ?? []).map((id, i) => (
+                      <div
+                        key={id}
+                        className="flex flex-col items-center gap-2 rounded-xl border p-3 text-center border-primary/30 bg-primary/5"
+                      >
+                        {config?.poap_images?.[i] && (
+                          <img
+                            src={config.poap_images[i]}
+                            alt={config?.poap_names?.[i] ?? "POAP"}
+                            loading="lazy"
+                            className="w-14 h-14 rounded-full object-cover"
+                          />
+                        )}
+                        <p className="text-[10px] font-mono text-foreground leading-tight line-clamp-2">
+                          {config?.poap_names?.[i] ?? `POAP #${i + 1}`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {gateCheck && !gateCheck.qualified && !isOwner && (
+                    <div className="mt-4 flex flex-col items-center gap-2 py-3">
+                      <img src="/cypher-kitten/cat-crying.gif" alt="Crying kitten" className="size-16" />
+                      <p className="text-xs text-destructive font-mono text-center">
+                        No cumplís los requisitos. Asistí a estos eventos para calificar.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )
+          })()}
+
+          {/* ── Skill Gate ── */}
+          {hasGates && (() => {
+            const skillGate = hackerHouse.gates!.find((g) => g.gate_type === "skill")
+            const config = skillGate?.config as { skills?: string[] } | undefined
+            if (!config?.skills?.length) return null
+            const checkResult = gateCheck?.results?.find((r) => r.gate_type === "skill")
+            const passed = checkResult?.passed
+            return (
+              <section className="mb-8">
+                <h2 className="font-display font-bold text-lg text-foreground mb-4 flex items-center gap-2">
+                  <Zap className="size-4 text-primary" />
+                  Skills Required
+                  {passed !== undefined && (
+                    <span className={cn(
+                      "text-xs font-mono px-2 py-0.5 rounded-full ml-auto",
+                      passed ? "bg-[#6EE76E]/10 text-[#6EE76E]" : "bg-destructive/10 text-destructive",
+                    )}>
+                      {passed ? "Qualified" : "Required"}
+                    </span>
+                  )}
+                </h2>
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <p className="text-xs text-muted-foreground font-mono mb-4">
+                    You need at least one of these skills to join
+                  </p>
+                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                    {config.skills.map((skill) => (
+                      <SkillCard key={skill} skill={skill} size="xs" />
+                    ))}
+                  </div>
+                  {gateCheck && !gateCheck.qualified && !isOwner && (
+                    <div className="mt-4 flex flex-col items-center gap-2 py-3">
+                      <img src="/cypher-kitten/cat-crying.gif" alt="Crying kitten" className="size-16" />
+                      <p className="text-xs text-destructive font-mono text-center">
+                        No cumplís los requisitos. Necesitás al menos una de estas skills.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )
+          })()}
+
+          {/* ── Event Attendees Only gate ── */}
+          {hackerHouse.event_goers_only && hackerHouse.event_name && (
+            <section className="mb-8">
+              <div className="bg-card border border-primary/30 rounded-xl p-5 flex items-start gap-3">
+                <Shield className="size-4 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Event attendees only</p>
+                  <p className="text-xs text-muted-foreground font-mono mt-1">
+                    Only builders attending <span className="text-primary">{hackerHouse.event_name}</span> can apply to this house.
+                  </p>
+                </div>
               </div>
             </section>
           )}
@@ -807,7 +1110,7 @@ export default function HackerHouseDetailPage({
                     Contract type
                   </span>
                   <span className="text-foreground font-medium">
-                    {hackerHouse.contract_type === "multisig" ? "Multisig" : "Admin Wallet"}
+                    {hackerHouse.contract_type === "multisig" ? "Multisig" : "Host Wallet"}
                   </span>
                 </div>
               )}
@@ -874,7 +1177,25 @@ export default function HackerHouseDetailPage({
         </div>
 
         {/* ── Sticky Footer CTA ── */}
-        {hackerHouse.status !== "finished" && (
+        {houseFinished && escrowAddress ? (
+          <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-60 bg-background/95 backdrop-blur-sm border-t border-border p-4 z-40">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+              <div>
+                <p className="text-strategist font-bold text-sm">Cancelled — Refunded</p>
+                <p className="text-muted-foreground text-xs font-mono">{costInfo.costPerPerson} returned</p>
+              </div>
+              <a
+                href={kernelAddress ? `https://sepolia.arbiscan.io/address/${kernelAddress}#tokentxns` : `https://sepolia.arbiscan.io/address/${escrowAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 max-w-xs py-4 px-6 font-bold rounded-full flex items-center justify-center gap-2 bg-strategist text-background hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink className="size-4" />
+                See Refund
+              </a>
+            </div>
+          </div>
+        ) : hackerHouse.status !== "finished" && (
           <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-60 bg-background/95 backdrop-blur-sm border-t border-border p-4 z-40">
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
               <div>
@@ -935,6 +1256,16 @@ export default function HackerHouseDetailPage({
                 >
                   🔑 See your Key NFT
                 </button>
+              ) : hackerHouse.application_type === "curated" ? (
+                <div className="flex-1 max-w-xs py-4 px-6 font-bold rounded-full flex items-center justify-center gap-2 bg-muted text-muted-foreground">
+                  <Lock className="size-4" />
+                  Curated — Coming Soon
+                </div>
+              ) : !isInvited ? (
+                <div className="flex-1 max-w-xs py-4 px-6 font-bold rounded-full flex items-center justify-center gap-2 bg-muted text-muted-foreground">
+                  <Lock className="size-4" />
+                  Invite Only
+                </div>
               ) : (
                 <Link
                   href={`/dashboard/hacker-houses/${id}/payment`}
@@ -977,7 +1308,7 @@ export default function HackerHouseDetailPage({
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col items-center gap-1 text-center">
                   <span className="px-3 py-1 rounded-full text-xs font-mono border border-primary/40 text-primary bg-primary/10">
-                    Key NFT · #{String(filledCount).padStart(4, "0")}
+                    Key NFT · #{String(Number(builderSpot?.bookingId ?? 0) + 1).padStart(4, "0")}
                   </span>
                   <p className="text-xs text-muted-foreground font-mono mt-2">Welcome to</p>
                   <h3 className="font-display font-bold text-xl text-foreground">{hackerHouse.name}</h3>
@@ -993,23 +1324,25 @@ export default function HackerHouseDetailPage({
                     <span className="font-mono text-xs">Dates</span>
                     <span className="text-foreground">{formatDateRange(hackerHouse.start_date, hackerHouse.end_date)}</span>
                   </div>
-                  {hackerHouse.modality !== "free" && (hackerHouse.price_per_person ?? 0) > 0 && (
+                  {hackerHouse.modality !== "free" && (hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person ?? 0) > 0 && (
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span className="font-mono text-xs">Paid</span>
-                      <span className="text-[#6EE76E] font-bold">{hackerHouse.price_per_person} USDC ✓</span>
+                      <span className="text-[#6EE76E] font-bold">{hackerHouse.deposit_amount_usdc ?? hackerHouse.price_per_person} USDC ✓</span>
                     </div>
                   )}
                 </div>
 
-                <a
-                  href="https://etherscan.io"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors text-sm font-mono"
-                >
-                  <ExternalLink className="size-4" />
-                  See it on Etherscan (coming soon)
-                </a>
+                {escrowAddress && (
+                  <a
+                    href={kernelAddress ? `https://sepolia.arbiscan.io/address/${kernelAddress}#nfttransfers` : `https://sepolia.arbiscan.io/address/${escrowAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors text-sm font-mono"
+                  >
+                    <ExternalLink className="size-4" />
+                    View on Arbiscan
+                  </a>
+                )}
               </div>
             </div>
           </div>

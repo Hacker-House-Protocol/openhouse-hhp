@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
 import { applyToHackerHouseSchema } from "@/lib/schemas/hacker-house"
+import { evaluateGates, allGatesPassed } from "@/lib/gate-engine"
+import type { HouseGate } from "@/lib/types"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -37,7 +39,7 @@ export async function POST(
 
   const { data: hackerHouse } = await supabaseServer
     .from("hacker_houses")
-    .select("id, name, creator_id, status")
+    .select("id, name, creator_id, status, event_id, event_goers_only")
     .eq("id", hackerHouseId)
     .single()
 
@@ -47,6 +49,63 @@ export async function POST(
 
   if (hackerHouse.status !== "open") {
     return NextResponse.json({ message: "This Hacker House is not accepting applications" }, { status: 400 })
+  }
+
+  // ── Event attendee gate ─────────────────────────────────────────────
+  if (hackerHouse.event_goers_only && hackerHouse.event_id) {
+    const { data: attendance } = await supabaseServer
+      .from("event_attendees")
+      .select("id")
+      .eq("event_id", hackerHouse.event_id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (!attendance) {
+      return NextResponse.json(
+        { message: "This house is restricted to event attendees. Mark yourself as attending the event first." },
+        { status: 403 },
+      )
+    }
+  }
+
+  // ── Gate validation ──────────────────────────────────────────────────
+  const { data: gates } = await supabaseServer
+    .from("house_gates")
+    .select("*")
+    .eq("hacker_house_id", hackerHouseId)
+
+  let matchedPoaps: string[] = []
+  let matchedSkills: string[] = []
+
+  if (gates?.length) {
+    const { data: fullUser } = await supabaseServer
+      .from("users")
+      .select("poaps, skills, talent_tags")
+      .eq("id", user.id)
+      .single()
+
+    if (fullUser) {
+      const results = evaluateGates(
+        {
+          poaps: fullUser.poaps ?? [],
+          skills: (fullUser as { skills?: string[] }).skills ?? [],
+          talent_tags: (fullUser as { talent_tags?: string[] }).talent_tags ?? [],
+        },
+        gates as HouseGate[],
+      )
+
+      if (!allGatesPassed(results)) {
+        const failed = results.filter((r) => !r.passed)
+        return NextResponse.json(
+          { message: "You don't meet the requirements for this house", gates: failed },
+          { status: 403 },
+        )
+      }
+
+      // Credentials the applicant passed with — only what the host's gates asked for.
+      matchedPoaps = results.filter((r) => r.gate_type === "poap").flatMap((r) => r.matched)
+      matchedSkills = results.filter((r) => r.gate_type === "skill").flatMap((r) => r.matched)
+    }
   }
 
   const body: unknown = await req.json()
@@ -91,12 +150,25 @@ export async function POST(
     return NextResponse.json({ message: "Database error" }, { status: 500 })
   }
 
-  // Notify creator (only on first apply)
+  // Notify creator (only on first apply). If gates were passed, tell the host
+  // which of their required credentials the applicant matched on.
+  let notificationBody = `${user.handle ?? "Someone"} applied to your hacker house "${hackerHouse.name}".`
+  if (matchedPoaps.length || matchedSkills.length) {
+    const parts: string[] = []
+    if (matchedPoaps.length) {
+      parts.push(`${matchedPoaps.length} POAP${matchedPoaps.length > 1 ? "s" : ""} (${matchedPoaps.join(", ")})`)
+    }
+    if (matchedSkills.length) {
+      parts.push(`${matchedSkills.length} skill${matchedSkills.length > 1 ? "s" : ""} (${matchedSkills.join(", ")})`)
+    }
+    notificationBody += ` Passed the gate with ${parts.join(" and ")}.`
+  }
+
   await supabaseServer.from("notifications").insert({
     user_id: hackerHouse.creator_id,
     type: "hacker_house_application",
     title: "New application",
-    body: `${user.handle ?? "Someone"} applied to your hacker house "${hackerHouse.name}".`,
+    body: notificationBody,
     link: `/dashboard/hacker-houses/${hackerHouseId}`,
   })
 

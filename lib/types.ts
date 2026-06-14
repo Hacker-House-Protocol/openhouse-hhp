@@ -29,6 +29,7 @@ export interface FriendshipWithUser extends Friendship {
     handle: string | null
     archetype: string | null
     avatar_url: string | null
+    skills: string[] | null
   }
   direction: "sent" | "received"
 }
@@ -46,6 +47,7 @@ export type NotificationType =
   | "hack_space_accepted"
   | "hacker_house_application"
   | "hacker_house_accepted"
+  | "hacker_house_invite"
   | "event_request"
 
 export interface Notification {
@@ -85,6 +87,14 @@ export interface UserProfile {
   talent_tags: string[]
   talent_credentials: TalentCredential[]
   poaps: POAP[]
+  seeking_skills: string[]
+  matching_cities: string[]
+  featured_poaps: string[]
+  kernel_address: string | null
+  human_passport_verified: boolean
+  worldid_verified: boolean
+  worldid_verification_level: string | null
+  banner_url: string | null
   onchain_since: string | null
   created_at: string
   updated_at: string
@@ -147,6 +157,7 @@ export interface HackSpace {
   }
   member_count?: number
   participants?: HackSpaceParticipant[]
+  gates?: HouseGate[]
 }
 
 export interface HackSpaceListParams {
@@ -185,6 +196,17 @@ export interface ApplicationWithApplicant extends Application {
     skills: string[] | null
     avatar_url: string | null
   }
+}
+
+// Hacker House Homies
+export type HomieStatus = "paid" | "invited"
+export interface Homie {
+  id: string
+  handle: string | null
+  archetype: string | null
+  avatar_url: string | null
+  status: HomieStatus
+  is_creator: boolean
 }
 
 // Hacker Houses
@@ -233,17 +255,28 @@ export interface HackerHouse {
   application_form_url: string | null
   contract_type: HouseContractType | null
   sponsor_community_id: string | null
+  event_id: string | null
   event_name: string | null
   event_url: string | null
   event_start_date: string | null
   event_end_date: string | null
   event_timing: string[] | null
+  event_goers_only: boolean
   lat: number | null
   lng: number | null
   created_at: string
   creator: HackerHouseParticipant
   participants: HackerHouseParticipant[]
   participants_count: number
+  // Web3 escrow fields — only populated for paid/staking modality
+  escrow_address: string | null
+  host_safe: string | null
+  deposit_amount_usdc: number | null
+  withdraw_date: string | null
+  house_type: 'co_payment' | 'staking' | 'hybrid' | null
+  yield_mode: 'none' | 'gmx' | null
+  yield_dest: 'host' | 'builders' | null
+  gates?: HouseGate[]
 }
 
 export interface HackerHouseListParams {
@@ -360,6 +393,7 @@ export interface Community {
   verification_requested: boolean
   featured_requested: boolean
   is_worldwide: boolean
+  gates?: HouseGate[]
   created_at: string
 }
 
@@ -462,6 +496,70 @@ export interface EventRequest {
   submitted_by: string | null
   submitter: { id: string; handle: string | null; avatar_url: string | null } | null
   created_at: string
+}
+
+/* ── Gates & Multi-Wallet ── */
+
+export type GateType = "poap" | "skill"
+
+export interface PoapGateConfig {
+  mode: "specific"
+  event_ids: string[]
+  poap_names?: string[]
+  poap_images?: string[]
+}
+
+export interface SkillGateConfig {
+  skills: string[]
+}
+
+export type GateConfig = PoapGateConfig | SkillGateConfig
+
+export interface HouseGate {
+  id: string
+  entity_type: string
+  entity_id: string
+  gate_type: GateType
+  config: GateConfig
+  created_at: string
+}
+
+export interface GateCheckResult {
+  gate_type: GateType
+  passed: boolean
+  /** Generic reason — never reveals user data */
+  reason: string
+  /**
+   * Names of the user's own credentials that satisfied this gate (matched POAP
+   * names or skills). Only the credentials the host already required in the gate
+   * — never the user's full POAP/skill list. Used to tell the host what the
+   * applicant passed with. Empty when the gate did not pass.
+   */
+  matched: string[]
+}
+
+export interface UserWallet {
+  id: string
+  user_id: string
+  wallet_address: string
+  label: string | null
+  is_primary: boolean
+  created_at: string
+  /** Ownership proven (Privy linkWallet / admin vouch / legacy). Only verified wallets feed credentials. */
+  verified: boolean
+  /** 'privy_link' | 'admin_mock' | 'legacy' */
+  verification_method: string | null
+  verified_at: string | null
+}
+
+export interface ProfileVisibility {
+  user_id: string
+  show_socials: boolean
+  show_email: boolean
+  show_city: boolean
+  show_bio: boolean
+  show_nfts: boolean
+  show_chain_activity: boolean
 }
 
 /* ── Admin ── */

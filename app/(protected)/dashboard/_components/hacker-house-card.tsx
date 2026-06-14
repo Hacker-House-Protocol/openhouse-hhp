@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { ARCHETYPES } from "@/lib/onboarding"
 import type { HackerHouse } from "@/lib/types"
-import { CalendarDays, BadgeCheck } from "lucide-react"
+import { CalendarDays, BadgeCheck, Lock, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -141,13 +141,29 @@ export function HackerHouseCard({ hackerHouse, currentUserId }: HackerHouseCardP
         <span className={cn(
           "absolute bottom-2 left-2 text-[9px] px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap z-10",
           hackerHouse.modality === "free"
-            ? "bg-[#6EE76E]/90 text-background"
+            ? "bg-primary/90 text-white"
             : hackerHouse.modality === "staking"
-              ? "bg-[#8B78E6]/90 text-white"
-              : "bg-[rgba(249,115,22,0.85)] text-white",
+              ? "bg-amber/90 text-background"
+              : "bg-builder-archetype/90 text-background",
         )}>
           {modalityLabel}
         </span>
+
+        {/* Bottom-right badges */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 z-10">
+          {hackerHouse.application_type === "invite_only" && (
+            <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-sm font-mono whitespace-nowrap bg-black/70 text-amber-400 backdrop-blur-sm border border-amber-400/30">
+              <Lock className="size-2.5" />
+              Invite Only
+            </span>
+          )}
+          {hackerHouse.yield_mode === "gmx" && (
+            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-sm font-mono border border-strategist/60 bg-black/70 text-strategist backdrop-blur-sm">
+              <TrendingUp className="size-2.5" />
+              GMX Yield
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="p-3 pb-4 flex flex-col gap-2">
@@ -170,29 +186,33 @@ export function HackerHouseCard({ hackerHouse, currentUserId }: HackerHouseCardP
           <span className="truncate">{formatDateRange(hackerHouse.start_date, hackerHouse.end_date)}</span>
         </div>
 
-        {/* Event line */}
-        {hackerHouse.event_name && (
-          <div className="flex items-center gap-1.5 text-[10px] font-mono" style={{ color: "var(--strategist)" }}>
-            <span className="size-1.5 rounded-full shrink-0" style={{ background: "var(--strategist)" }} />
-            <span className="truncate">during {hackerHouse.event_name}</span>
-          </div>
-        )}
+        {/* Event line — fixed height to keep cards consistent */}
+        <div className="h-4">
+          {hackerHouse.event_name && (
+            <div className="flex items-center gap-1.5 text-[10px] font-mono" style={{ color: "var(--strategist)" }}>
+              <span className="size-1.5 rounded-full shrink-0" style={{ background: "var(--strategist)" }} />
+              <span className="truncate">during {hackerHouse.event_name}</span>
+            </div>
+          )}
+        </div>
 
-        {/* Amenity pills — 3 max + N overflow */}
-        {activeAmenities.length > 0 && (
-          <div className="flex flex-wrap gap-1 overflow-hidden max-h-[1.5rem]">
-            {activeAmenities.slice(0, 3).map((a) => (
-              <span key={a.key} className="text-[9px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground font-mono whitespace-nowrap">
-                {a.label}
-              </span>
-            ))}
-            {activeAmenities.length > 3 && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground font-mono">
-                +{activeAmenities.length - 3}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Amenity pills — fixed height to keep cards consistent */}
+        <div className="h-6">
+          {activeAmenities.length > 0 && (
+            <div className="flex flex-wrap gap-1 overflow-hidden max-h-[1.5rem]">
+              {activeAmenities.slice(0, 3).map((a) => (
+                <span key={a.key} className="text-[9px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground font-mono whitespace-nowrap">
+                  {a.label}
+                </span>
+              ))}
+              {activeAmenities.length > 3 && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground font-mono">
+                  +{activeAmenities.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Spacer */}
         <div className="flex-1" />

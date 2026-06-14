@@ -10,7 +10,7 @@ interface KittenSelectorProps {
 
 export function KittenSelector({ value, onChange }: KittenSelectorProps) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
       {CYPHER_KITTENS.map((kitten) => {
         const isSelected = value === kitten.src
         return (
@@ -19,8 +19,8 @@ export function KittenSelector({ value, onChange }: KittenSelectorProps) {
             type="button"
             onClick={() => onChange(kitten.src)}
             className={cn(
-              "relative flex flex-col items-center gap-3 rounded-2xl border-2 p-5",
-              "transition-all duration-200 cursor-pointer",
+              "relative flex flex-col items-center gap-1 rounded-lg border-2 p-1.5",
+              "transition-all duration-200 cursor-pointer aspect-square",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
             style={{
@@ -35,7 +35,7 @@ export function KittenSelector({ value, onChange }: KittenSelectorProps) {
           >
             {isSelected && (
               <div
-                className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold"
+                className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-mono font-bold z-10"
                 style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
               >
                 ✓
@@ -44,10 +44,10 @@ export function KittenSelector({ value, onChange }: KittenSelectorProps) {
             <img
               src={kitten.src}
               alt={kitten.label}
-              className="w-32 h-32 rounded-xl object-cover"
+              className="w-[80%] aspect-square rounded-lg object-cover shrink-0"
             />
             <span
-              className="text-sm font-mono font-medium transition-colors"
+              className="text-[9px] font-mono font-medium transition-colors leading-tight"
               style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }}
             >
               {kitten.label}

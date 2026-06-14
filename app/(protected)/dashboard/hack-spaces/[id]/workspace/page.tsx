@@ -1,7 +1,8 @@
 "use client"
 
-import { use, useState, useEffect, useCallback } from "react"
+import { use, useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
+import { toast } from "sonner"
 import { useHackSpace } from "@/services/api/hack-spaces"
 import { useProfile } from "@/services/api/profile"
 import {
@@ -92,12 +93,20 @@ export default function WorkspacePage({
   const { data: profile } = useProfile({ enabled: true })
 
   const [isMuted, setIsMuted] = useState(false)
-  const [isVideoOn, setIsVideoOn] = useState(true)
+  const [isVideoOn, setIsVideoOn] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [selectedWorld, setSelectedWorld] = useState("startup-cozy")
   const [chatMessage, setChatMessage] = useState("")
   const [messages, setMessages] = useState(MOCK_MESSAGES)
+
+  // Real local camera/mic — the "You" tile in the hangout spot.
+  // Camera and mic are independent streams so the mic works even with video off.
+  const localVideoRef = useRef<HTMLVideoElement>(null)
+  const camStreamRef = useRef<MediaStream | null>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
+  const [camError, setCamError] = useState(false)
+  const [micLevel, setMicLevel] = useState(0)
 
   // Player cat movement
   const [catPos, setCatPos] = useState({ x: 50, y: 50 })
@@ -113,7 +122,6 @@ export default function WorkspacePage({
 
   const currentWorld = PIXEL_WORLDS.find((w) => w.id === selectedWorld) ?? PIXEL_WORLDS[1]
   const onlineMembers = MOCK_MEMBERS.filter((m) => m.isOnline)
-  const videoMembers = MOCK_MEMBERS.filter((m) => m.isOnVideo)
 
   // Move player cat
   const movePlayerCat = useCallback((direction: "up" | "down" | "left" | "right") => {
@@ -152,6 +160,130 @@ export default function WorkspacePage({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [movePlayerCat])
+
+  // Acquire / release the real camera (video-only) when the user toggles video
+  useEffect(() => {
+    let cancelled = false
+
+    async function start() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCamError(true)
+        setIsVideoOn(false)
+        toast.error("Camera needs a secure context — open the app on localhost or https.")
+        return
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        camStreamRef.current = stream
+        setCamError(false)
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream
+      } catch (err) {
+        if (cancelled) return
+        setCamError(true)
+        setIsVideoOn(false)
+        const name = err instanceof DOMException ? err.name : ""
+        if (name === "NotAllowedError") {
+          toast.error("Camera permission denied. Allow it in your browser's site settings, then try again.")
+        } else if (name === "NotFoundError") {
+          toast.error("No camera found on this device.")
+        } else if (name === "NotReadableError") {
+          toast.error("Your camera is already in use by another app.")
+        } else {
+          toast.error("Couldn't access your camera. Check your browser permissions.")
+        }
+      }
+    }
+
+    if (isVideoOn) void start()
+
+    return () => {
+      cancelled = true
+      if (camStreamRef.current) {
+        camStreamRef.current.getTracks().forEach((t) => t.stop())
+        camStreamRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVideoOn])
+
+  // Acquire / release the real mic (audio-only) when unmuted, plus a live level
+  // meter so you can see your voice is actually being captured.
+  useEffect(() => {
+    let cancelled = false
+    let raf = 0
+    let ctx: AudioContext | null = null
+
+    async function start() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setIsMuted(true)
+        toast.error("Mic needs a secure context — open the app on localhost or https.")
+        return
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        micStreamRef.current = stream
+        try {
+          const AC =
+            window.AudioContext ??
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+          ctx = new AC()
+          const source = ctx.createMediaStreamSource(stream)
+          const analyser = ctx.createAnalyser()
+          analyser.fftSize = 256
+          source.connect(analyser)
+          const data = new Uint8Array(analyser.frequencyBinCount)
+          const tick = () => {
+            analyser.getByteTimeDomainData(data)
+            let sum = 0
+            for (let i = 0; i < data.length; i++) {
+              const v = (data[i] - 128) / 128
+              sum += v * v
+            }
+            setMicLevel(Math.min(1, Math.sqrt(sum / data.length) * 3))
+            raf = requestAnimationFrame(tick)
+          }
+          tick()
+        } catch {
+          // AnalyserNode/AudioContext unsupported — the mic still captures fine
+        }
+      } catch (err) {
+        if (cancelled) return
+        setIsMuted(true)
+        const name = err instanceof DOMException ? err.name : ""
+        if (name === "NotAllowedError") {
+          toast.error("Mic permission denied. Allow it in your browser's site settings, then try again.")
+        } else if (name === "NotFoundError") {
+          toast.error("No microphone found on this device.")
+        } else if (name === "NotReadableError") {
+          toast.error("Your mic is already in use by another app.")
+        } else {
+          toast.error("Couldn't access your microphone. Check your browser permissions.")
+        }
+      }
+    }
+
+    if (!isMuted) void start()
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+      if (ctx) void ctx.close()
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((t) => t.stop())
+        micStreamRef.current = null
+      }
+      setMicLevel(0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMuted])
 
   // NPC random movement
   useEffect(() => {
@@ -315,27 +447,44 @@ export default function WorkspacePage({
           </button>
         </div>
 
-        {/* ── Video Chat Overlay ── */}
+        {/* ── Video Chat Overlay — real local camera ── */}
         <div className="absolute top-16 left-4 z-10 flex gap-3 lg:max-w-[calc(100%-22rem)]">
-          {videoMembers.map((member) => (
-            <div
-              key={member.id}
-              className="relative w-28 h-24 sm:w-36 sm:h-28 md:w-44 md:h-32 rounded-lg overflow-hidden border-2 shadow-lg shrink-0"
-              style={{ borderColor: member.archetypeColor }}
-            >
-              <img
-                src={member.videoAvatar}
-                alt={member.username}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium text-xs sm:text-sm">{member.username}</span>
-                  <span className="w-2 h-2 bg-[#6EE76E] rounded-full" />
-                </div>
+          <div className="relative w-56 h-48 sm:w-72 sm:h-56 md:w-[22rem] md:h-64 rounded-lg overflow-hidden border-2 border-[#6B00C9] shadow-lg shrink-0 bg-[#1A1740]">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover ${isVideoOn ? "" : "hidden"}`}
+              style={{ transform: "scaleX(-1)" }}
+            />
+            {!isVideoOn && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-3">
+                <VideoOff className="w-9 h-9 text-[#7B7A8E]" />
+                <span className="text-xs text-[#7B7A8E]">
+                  {camError ? "Camera blocked" : "Camera off"}
+                </span>
+              </div>
+            )}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium text-xs sm:text-sm truncate">
+                  {profile?.handle ? `@${profile.handle}` : "You"}
+                </span>
+                {isMuted ? (
+                  <MicOff className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                ) : (
+                  <span className="relative flex items-center justify-center w-4 h-4 shrink-0">
+                    <span
+                      className="absolute rounded-full bg-[#6EE76E]/40 transition-transform duration-75"
+                      style={{ width: 16, height: 16, transform: `scale(${0.35 + micLevel * 1.3})` }}
+                    />
+                    <span className="absolute w-2 h-2 bg-[#6EE76E] rounded-full" />
+                  </span>
+                )}
               </div>
             </div>
-          ))}
+          </div>
         </div>
 
         {/* ── D-Pad Controls - Mobile ── */}
