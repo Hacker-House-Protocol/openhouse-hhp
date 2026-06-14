@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef } from "react"
-import { useWallets, useCreateWallet, getEmbeddedConnectedWallet } from "@privy-io/react-auth"
+import { useWallets, useCreateWallet, getEmbeddedConnectedWallet, usePrivy } from "@privy-io/react-auth"
 import { createWalletClient, custom } from "viem"
 import { arbitrumSepolia } from "viem/chains"
 import { createKernelClient, getKernelAddress } from "@/lib/zerodev"
@@ -13,14 +13,28 @@ type KernelWalletState =
   | { status: "ready"; kernelClient: KernelAccountClient; kernelAddress: `0x${string}` }
   | { status: "error"; error: string }
 
+type ConnectedWallet = ReturnType<typeof useWallets>["wallets"][number]
+
+/** The user's Privy embedded wallet — the canonical smart-account signer. */
+function findEmbedded(wallets: ConnectedWallet[]): ConnectedWallet | null {
+  return (
+    getEmbeddedConnectedWallet(wallets) ??
+    wallets.find(w => w.walletClientType === "privy" || w.connectorType === "embedded") ??
+    null
+  )
+}
+
 export function useKernelWallet() {
   const { wallets } = useWallets()
+  const { user } = usePrivy()
   const { createWallet } = useCreateWallet()
   const [state, setState] = useState<KernelWalletState>({ status: "idle" })
 
-  // Sync ref — updates every render, not via useEffect (avoids stale reads in async callbacks)
+  // Sync refs — update every render, not via useEffect (avoids stale reads in async callbacks)
   const walletsRef = useRef(wallets)
   walletsRef.current = wallets
+  const userRef = useRef(user)
+  userRef.current = user
 
   const connect = useCallback(async () => {
     setState({ status: "loading" })
@@ -29,60 +43,71 @@ export function useKernelWallet() {
       console.log("[KernelWallet] connect() called. wallets:", walletsRef.current.length,
         walletsRef.current.map(w => ({ type: w.walletClientType, connector: w.connectorType, addr: w.address })))
 
-      // 1. Try embedded wallet first (email/social login users)
-      let wallet = getEmbeddedConnectedWallet(walletsRef.current)
+      // 1. Prefer the Privy embedded wallet — it is the canonical signer for the
+      //    user's smart account. Linked external wallets (MetaMask, etc.) are
+      //    read-only DATA wallets for POAPs/credentials and must NEVER sign
+      //    UserOps: signing with a different key derives a different kernel
+      //    address, which would orphan the user's houses/funds.
+      let wallet = findEmbedded(walletsRef.current)
 
-      // 2. Also check for any privy-type wallet
-      if (!wallet) {
-        wallet = walletsRef.current.find(w => w.walletClientType === "privy") ?? null
-      }
+      // Does this user OWN a Privy embedded wallet (email/social login)? Check
+      // linked_accounts, not just the live wallets array — the embedded wallet
+      // may not be hydrated yet at connect() time even though the user has one.
+      const ownsEmbedded =
+        !!wallet ||
+        (userRef.current?.linkedAccounts?.some(
+          (a) => a.type === "wallet" &&
+            (a as { walletClientType?: string }).walletClientType === "privy",
+        ) ?? false)
 
-      console.log("[KernelWallet] after step 1+2:", wallet ? `found ${wallet.walletClientType}/${wallet.connectorType}` : "no wallet")
+      console.log("[KernelWallet] after step 1:", wallet
+        ? `found ${wallet.walletClientType}/${wallet.connectorType}`
+        : `no embedded yet (ownsEmbedded=${ownsEmbedded})`)
 
-      // 3. No embedded wallet — create one for social/email login users (no external wallets)
-      if (!wallet && walletsRef.current.length === 0) {
-        console.log("[KernelWallet] step 3: creating embedded wallet...")
+      // 2. User owns an embedded wallet but it isn't hydrated yet — provision it
+      //    (no-op if it exists) and poll until it appears. Runs even when an
+      //    external wallet is connected, so a linked MetaMask never gets picked.
+      if (!wallet && ownsEmbedded) {
+        console.log("[KernelWallet] step 2: ensuring embedded wallet...")
         try {
           const created = await createWallet()
-          console.log("[KernelWallet] createWallet returned:", typeof created, created ? Object.keys(created as object) : "null")
-          // Try using the returned object directly if it has getEthereumProvider
           if (created && typeof (created as unknown as Record<string, unknown>).getEthereumProvider === "function") {
-            wallet = created as unknown as typeof walletsRef.current[0]
-            console.log("[KernelWallet] using returned object directly")
+            wallet = created as unknown as ConnectedWallet
+            console.log("[KernelWallet] using returned embedded wallet directly")
           }
         } catch (e) {
-          console.log("[KernelWallet] createWallet threw (may already exist):", e)
-          // createWallet throws if embedded wallet already exists — that's fine
+          console.log("[KernelWallet] createWallet threw (likely already exists):", e)
         }
 
-        // If returned object wasn't usable, poll the wallets array
         if (!wallet) {
-          console.log("[KernelWallet] polling wallets array...")
           for (let attempt = 0; attempt < 20; attempt++) {
             await new Promise(r => setTimeout(r, 500))
-            const current = walletsRef.current
-            console.log(`[KernelWallet] poll ${attempt + 1}/20: ${current.length} wallets`,
-              current.map(w => ({ type: w.walletClientType, connector: w.connectorType })))
-            wallet = getEmbeddedConnectedWallet(current)
-              ?? current.find(w => w.walletClientType === "privy")
-              ?? null
+            wallet = findEmbedded(walletsRef.current)
             if (wallet) {
-              console.log("[KernelWallet] found wallet on poll", attempt + 1)
+              console.log("[KernelWallet] found embedded wallet on poll", attempt + 1)
               break
             }
           }
         }
       }
 
-      // 4. Last resort — use any external wallet (MetaMask, Phantom, etc.)
-      if (!wallet) {
-        console.log("[KernelWallet] step 4: trying any wallet from array of", walletsRef.current.length)
-        wallet = walletsRef.current[0] ?? null
+      // 3. Pure external-wallet login (user has NO embedded wallet) — only here
+      //    may an injected wallet act as the smart-account signer.
+      if (!wallet && !ownsEmbedded) {
+        wallet = walletsRef.current.find(
+          w => w.walletClientType !== "privy" && w.connectorType !== "embedded",
+        ) ?? walletsRef.current[0] ?? null
+        console.log("[KernelWallet] step 3: external-login signer:", wallet?.walletClientType)
       }
 
       if (!wallet) {
-        console.error("[KernelWallet] no wallet found after all steps")
-        setState({ status: "error", error: "No wallet available. Please log in first." })
+        console.error("[KernelWallet] no usable signer found")
+        setState({
+          status: "error",
+          error: ownsEmbedded
+            ? "Your embedded wallet is still initializing. Please try again in a moment."
+            : "No wallet available. Please log in first.",
+        })
         return null
       }
 
