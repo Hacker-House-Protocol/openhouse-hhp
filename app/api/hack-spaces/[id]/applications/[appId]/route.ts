@@ -68,8 +68,22 @@ export async function PATCH(
     return NextResponse.json({ message: "Application not found" }, { status: 404 })
   }
 
-  // If accepted, check if team is now full and update hack space status
+  // If accepted, notify the applicant and check if the team is now full
   if (parsed.data.status === "accepted") {
+    const { data: hs } = await supabaseServer
+      .from("hack_spaces")
+      .select("title")
+      .eq("id", hackSpaceId)
+      .single()
+
+    await supabaseServer.from("notifications").insert({
+      user_id: application.applicant_id,
+      type: "hack_space_accepted",
+      title: "Application accepted",
+      body: `You're in! Your application to "${hs?.title ?? "the Hack Space"}" was accepted.`,
+      link: `/dashboard/hack-spaces/${hackSpaceId}`,
+    })
+
     const { count } = await supabaseServer
       .from("applications")
       .select("*", { count: "exact", head: true })

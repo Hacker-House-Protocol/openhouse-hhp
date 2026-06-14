@@ -37,6 +37,7 @@ function hackSpaceToDefaults(hs: HackSpace): Partial<CreateHackSpaceInput> {
     event_start_date: hs.event_start_date ?? "",
     event_end_date: hs.event_end_date ?? "",
     event_timing: (hs.event_timing as CreateHackSpaceInput["event_timing"]) ?? [],
+    gates: (hs.gates ?? []).map((g) => ({ gate_type: g.gate_type, config: g.config })) as CreateHackSpaceInput["gates"],
   }
 }
 

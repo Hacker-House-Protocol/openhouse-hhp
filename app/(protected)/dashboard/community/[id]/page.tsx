@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { useCommunity, useJoinCommunity, useLeaveCommunity, useCommunityMembers, useUpdateCommunity } from "@/services/api/communities"
 import { CommunityForm } from "../create/_components/create-community-form"
+import type { CreateCommunityInput } from "@/lib/schemas/community"
 import { CommunityEventsTab } from "./_components/community-events-tab"
 import { ADMIN_USER_IDS } from "@/lib/admin"
 import { useProfile } from "@/services/api/profile"
@@ -194,6 +195,9 @@ export default function CommunityDetailPage() {
                 is_worldwide: community.is_worldwide,
                 verification_requested: community.verification_requested,
                 featured_requested: community.featured_requested,
+                access_type: community.gates && community.gates.length > 0 ? "gated" : "open",
+                gates: (community.gates ?? []).map((g) => ({ gate_type: g.gate_type, config: g.config })) as CreateCommunityInput["gates"],
+                invited_user_ids: [],
               }}
               onFormSubmit={async (values) => {
                 await updateMutation.mutateAsync(values)

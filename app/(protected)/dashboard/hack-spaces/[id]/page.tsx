@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import {
   useHackSpace,
@@ -64,6 +64,15 @@ export default function HackSpaceDetailPage({
   const updateHackSpace = useUpdateHackSpace(id)
   const [showApplyForm, setShowApplyForm] = useState(false)
   const [message, setMessage] = useState("")
+  const applyFormRef = useRef<HTMLDivElement>(null)
+
+  // The apply form lives in the page body; bring it into view when opened so the
+  // footer "Apply" button doesn't feel like a no-op.
+  useEffect(() => {
+    if (showApplyForm) {
+      applyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [showApplyForm])
 
   if (isLoading) {
     return (
@@ -474,7 +483,7 @@ export default function HackSpaceDetailPage({
 
           {/* ── Apply section (non-member, inline — hidden behind sticky footer CTA) ── */}
           {showApplyForm && canApply && (
-            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 mb-8">
+            <div ref={applyFormRef} className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 mb-8 scroll-mt-24">
               <h2 className="font-display font-bold text-foreground">Apply to join</h2>
               {apply.isSuccess ? (
                 <p className="text-sm text-primary">

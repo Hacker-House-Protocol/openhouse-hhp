@@ -4,12 +4,24 @@ import type { GateInput } from "@/lib/schemas/hacker-house"
 
 export type GateEntityType = "hacker_house" | "community" | "hack_space"
 
-/** Save gates for any entity. Deletes existing gates first (replace semantics). */
+/** Save gates for any entity. Deletes existing gates first (replace semantics).
+ *  An empty array clears all gates for the entity (used when switching to "open"). */
 export async function saveGates(
   entityType: GateEntityType,
   entityId: string,
   gates: GateInput[],
 ) {
+  // Replace semantics: wipe existing gates for this entity first.
+  const { error: delError } = await supabaseServer
+    .from("gates")
+    .delete()
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId)
+
+  if (delError) {
+    console.error(`[saveGates:delete] ${entityType}/${entityId}`, delError)
+  }
+
   if (!gates.length) return
 
   const rows = gates.map((g) => ({
