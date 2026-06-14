@@ -4,8 +4,8 @@ const team = [
   {
     initial: "D",
     name: "Dex",
-    role: "Founder & Frontend",
-    body: "Originated the idea coordinating a hacker house at EthGlobal Buenos Aires. The product's Visionary.",
+    role: "Founder & Tech Lead",
+    body: "Originated the idea coordinating a hacker house at EthGlobal Buenos Aires. The product's visionary, and built the on-chain layer: escrow on Arbitrum + yield via GMX.",
     color: "#990070",
   },
   {
@@ -18,8 +18,8 @@ const team = [
   {
     initial: "J",
     name: "Julio",
-    role: "Web3 / Smart Contracts",
-    body: "Built the on-chain layer: escrow on Arbitrum + yield via GMX.",
+    role: "Mentor & Web3 Support",
+    body: "Mentored the team on the Web3 architecture and supported the on-chain integration.",
     color: "#6EE76E",
   },
 ]
@@ -52,7 +52,7 @@ export function SlideTeam() {
       <p className="mt-8 max-w-3xl text-sm leading-relaxed text-[#9D9CB0]">
         <span className="text-white">The team IS the user.</span> Dex and Sergio
         met coordinating a hacker house — literally the product&apos;s use case. Julio
-        joined to build the on-chain layer. The moat is the accumulated
+        joined as a Web3 mentor supporting the on-chain build. The moat is the accumulated
         reputation and network of communities: it isn&apos;t cloned, it&apos;s built.
       </p>
     </SlideShell>

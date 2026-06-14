@@ -42,10 +42,17 @@ export function Navbar() {
 
         <div className="flex items-center gap-4 sm:gap-6">
           <Link
-            href="/presentation"
+            href="/pitch"
             className="text-sm font-medium text-white/70 transition-colors hover:text-white"
           >
             Pitch
+          </Link>
+
+          <Link
+            href="/presentation"
+            className="text-sm font-medium text-white/70 transition-colors hover:text-white"
+          >
+            Presentation
           </Link>
 
           {!isLoading && isAuthenticated ? (
