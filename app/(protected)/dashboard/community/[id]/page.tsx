@@ -14,9 +14,12 @@ import {
   LogOut,
   Pencil,
   Image as ImageIcon,
+  Shield,
+  Zap,
 } from "lucide-react"
 import { useCommunity, useJoinCommunity, useLeaveCommunity, useCommunityMembers, useUpdateCommunity } from "@/services/api/communities"
 import { CommunityForm } from "../create/_components/create-community-form"
+import type { CreateCommunityInput } from "@/lib/schemas/community"
 import { CommunityEventsTab } from "./_components/community-events-tab"
 import { ADMIN_USER_IDS } from "@/lib/admin"
 import { useProfile } from "@/services/api/profile"
@@ -192,6 +195,9 @@ export default function CommunityDetailPage() {
                 is_worldwide: community.is_worldwide,
                 verification_requested: community.verification_requested,
                 featured_requested: community.featured_requested,
+                access_type: community.gates && community.gates.length > 0 ? "gated" : "open",
+                gates: (community.gates ?? []).map((g) => ({ gate_type: g.gate_type, config: g.config })) as CreateCommunityInput["gates"],
+                invited_user_ids: [],
               }}
               onFormSubmit={async (values) => {
                 await updateMutation.mutateAsync(values)
@@ -259,19 +265,71 @@ export default function CommunityDetailPage() {
                 </p>
               </div>
 
-              {/* Entry Requirements (placeholder) */}
-              <section className="col-span-full bg-card border border-border rounded-lg p-5">
-                <h3 className="font-display font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary" />
-                  Entry Requirements
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  Open to all — no requirements set.
-                </p>
-                <p className="text-muted-foreground text-xs mt-2">
-                  Soon: token gating, POAP verification, NFT requirements
-                </p>
-              </section>
+              {/* POAP Gate */}
+              {community.gates && community.gates.length > 0 && (() => {
+                const poapGate = community.gates.find((g) => g.gate_type === "poap")
+                const config = poapGate?.config as { event_ids?: string[]; poap_names?: string[]; poap_images?: string[] } | undefined
+                if (!config?.event_ids?.length) return null
+                return (
+                  <section className="col-span-full bg-card border border-border rounded-lg p-5">
+                    <h3 className="font-display font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-primary" />
+                      POAP Required
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-mono mb-3">
+                      You need at least one of these POAPs to join
+                    </p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      {config.event_ids.map((id, i) => (
+                        <div
+                          key={id}
+                          className="flex flex-col items-center gap-2 rounded-xl border p-3 text-center border-primary/30 bg-primary/5"
+                        >
+                          {config.poap_images?.[i] && (
+                            <img
+                              src={config.poap_images[i]}
+                              alt={config.poap_names?.[i] ?? "POAP"}
+                              loading="lazy"
+                              className="w-14 h-14 rounded-full object-cover"
+                            />
+                          )}
+                          <p className="text-[10px] font-mono text-foreground leading-tight line-clamp-2">
+                            {config.poap_names?.[i] ?? `POAP #${i + 1}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )
+              })()}
+
+              {/* Skill Gate */}
+              {community.gates && community.gates.length > 0 && (() => {
+                const skillGate = community.gates.find((g) => g.gate_type === "skill")
+                const config = skillGate?.config as { skills?: string[] } | undefined
+                if (!config?.skills?.length) return null
+                return (
+                  <section className="col-span-full bg-card border border-border rounded-lg p-5">
+                    <h3 className="font-display font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-primary" />
+                      Skills Required
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-mono mb-3">
+                      You need at least one of these skills to join
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {config.skills.map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium border border-primary/30 bg-primary/5 text-foreground"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                )
+              })()}
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@ import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
 import { isAdmin } from "@/lib/admin"
 import { geocodeAndUpdate } from "@/lib/geocode"
+import { getGates, saveGates } from "@/lib/gate-helpers"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -57,8 +58,10 @@ export async function GET(
     }
   }
 
+  const gates = await getGates("community", id)
+
   return NextResponse.json({
-    community: { ...data, member_count: count ?? 0, is_member: isMember },
+    community: { ...data, member_count: count ?? 0, is_member: isMember, gates },
   })
 }
 
@@ -120,6 +123,13 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 })
 
+  // Gates: only touch them if the form sent the field (replace semantics —
+  // an empty array clears gates, e.g. when the owner switches access to "open").
+  if (parsed.data.gates !== undefined) {
+    await saveGates("community", id, parsed.data.gates)
+  }
+  const gates = await getGates("community", id)
+
   // Re-geocode if a specific location was set (not worldwide)
   const cityVal = typeof updates.city === "string" ? updates.city : null
   const countryVal = typeof updates.country === "string" ? updates.country : null
@@ -127,5 +137,5 @@ export async function PATCH(
     geocodeAndUpdate("communities", id, cityVal, countryVal)
   }
 
-  return NextResponse.json({ community: updated })
+  return NextResponse.json({ community: { ...updated, gates } })
 }

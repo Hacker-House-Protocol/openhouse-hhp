@@ -12,6 +12,7 @@ export function Footer() {
             alt="Hacker House Protocol"
             width={28}
             height={26}
+            style={{ width: "auto", height: "auto" }}
           />
           <span className="font-display font-bold text-foreground text-sm">
             Hacker House Protocol

@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server"
 import { updateHackSpaceSchema } from "@/lib/schemas/hack-space"
 import { geocodeAndUpdate } from "@/lib/geocode"
 import { isAdmin } from "@/lib/admin"
+import { getGates, saveGates } from "@/lib/gate-helpers"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -45,11 +46,14 @@ export async function GET(
 
   const allParticipants = [data.creator, ...participants]
 
+  const gates = await getGates("hack_space", id)
+
   const hackSpace = {
     ...data,
     participants: allParticipants,
     member_count: allParticipants.length,
     all_applications: undefined,
+    gates,
   }
 
   return NextResponse.json({ hack_space: hackSpace })
@@ -99,7 +103,10 @@ export async function PATCH(
     )
   }
 
-  const { has_event, ...updates } = parsed.data
+  // gates + invited_user_ids are NOT columns on hack_spaces — strip them so the
+  // UPDATE doesn't fail. gates are persisted separately via saveGates below;
+  // invited_user_ids is transient (matches POST behaviour).
+  const { has_event, gates, invited_user_ids: _invited, ...updates } = parsed.data
 
   // Convert empty strings to null for optional DB columns
   const cleaned: Record<string, unknown> = {}
@@ -138,5 +145,12 @@ export async function PATCH(
     }
   }
 
-  return NextResponse.json({ hack_space: data })
+  // Gates: only touch them if the form sent the field (replace semantics —
+  // an empty array clears gates, e.g. when switching access to "open").
+  if (gates !== undefined) {
+    await saveGates("hack_space", id, gates)
+  }
+  const updatedGates = await getGates("hack_space", id)
+
+  return NextResponse.json({ hack_space: { ...data, gates: updatedGates } })
 }

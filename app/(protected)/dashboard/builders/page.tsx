@@ -12,7 +12,6 @@ import {
   ChevronDown,
   MapPin,
   Calendar,
-  Briefcase,
   ArrowRight,
   Star,
   X,
@@ -27,15 +26,52 @@ import { useFilteredCommunities, useJoinCommunity } from "@/services/api/communi
 import { ConnectButton } from "../_components/connect-button"
 import { CommunityCard } from "../_components/community-card"
 import { PageContainer } from "../_components/page-container"
+import { SkillCard } from "@/app/(protected)/dashboard/profile/_components/skill-card"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { ARCHETYPES } from "@/lib/onboarding"
+import { resolveSkill } from "@/lib/skill-icons"
 import type { UserProfile, SuggestedBuilder, Community, FriendshipWithUser } from "@/lib/types"
 
 type Tab = "builders" | "community"
+
+/* ── Skill icon strip — used in mini cards and swipe collapsed ── */
+function SkillIconRow({ skills, max = 4 }: { skills: string[]; max?: number }) {
+  const visible = skills.slice(0, max)
+  const rest = skills.length - max
+  if (visible.length === 0) return null
+  return (
+    <div className="flex items-center gap-1.5">
+      {visible.map((skill) => {
+        const def = resolveSkill(skill)
+        return (
+          <Tooltip key={skill}>
+            <TooltipTrigger asChild>
+              <div className="size-9 rounded-lg bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
+                {def.emoji ? (
+                  <span className="text-xl leading-none">{def.icon}</span>
+                ) : (
+                  <img src={def.icon} alt={def.label} className="size-6 object-contain" />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-[10px] font-mono">{def.label}</p>
+            </TooltipContent>
+          </Tooltip>
+        )
+      })}
+      {rest > 0 && (
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">+{rest}</span>
+      )}
+    </div>
+  )
+}
 
 /* ── Pending Request Card ── */
 function PendingRequestCard({ friendship }: { friendship: FriendshipWithUser }) {
@@ -45,24 +81,27 @@ function PendingRequestCard({ friendship }: { friendship: FriendshipWithUser }) 
   const displayName = other_user.handle ? `@${other_user.handle}` : "Anonymous"
 
   return (
-    <div className="h-full bg-card border border-border rounded-lg p-4 flex flex-col items-center text-center relative">
+    <div className="aspect-square bg-card border border-border rounded-xl p-3 flex flex-col items-center text-center relative overflow-hidden">
+      {/* Remove button */}
       {direction === "sent" && (
-        <div className="group absolute top-2 right-2">
+        <div className="group absolute top-2 right-2 z-10">
           <button
             type="button"
             onClick={() => removeMutation.mutate(undefined)}
             disabled={removeMutation.isPending}
             className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
-          <span className="absolute right-0 top-full mt-1 px-2 py-0.5 bg-popover border border-border rounded text-xs font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+          <span className="absolute right-0 top-full mt-1 px-2 py-0.5 bg-popover border border-border rounded text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
             Remove
           </span>
         </div>
       )}
+
+      {/* Avatar */}
       <div
-        className="w-12 h-12 rounded-full border-[3px] overflow-hidden mb-3"
+        className="w-20 h-20 rounded-full border-[3px] overflow-hidden shrink-0"
         style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
       >
         {other_user.avatar_url ? (
@@ -78,44 +117,65 @@ function PendingRequestCard({ friendship }: { friendship: FriendshipWithUser }) 
           />
         )}
       </div>
-      <h3 className="font-display font-bold text-foreground text-sm mb-1">{displayName}</h3>
-      <span
-        className={cn(
-          "px-2 py-0.5 rounded text-xs font-mono",
-          direction === "sent"
-            ? "bg-muted text-muted-foreground"
-            : "bg-primary/20 text-primary",
-        )}
-      >
-        {direction === "sent" ? "Request sent" : "Wants to connect"}
-      </span>
+
+      {/* Name */}
+      <h3 className="font-display font-bold text-foreground text-xs truncate max-w-[90px] mt-3">{displayName}</h3>
+
+      {/* Fixed-height spacer matching skills row */}
+      <div className="h-9 mt-3 shrink-0" />
+
+      {/* Status badge — pinned to bottom */}
+      <div className="mt-auto w-full shrink-0">
+        <span
+          className={cn(
+            "inline-flex w-full items-center justify-center rounded-full h-9 text-xs font-mono font-medium",
+            direction === "sent"
+              ? "bg-muted text-muted-foreground"
+              : "bg-primary/15 text-primary",
+          )}
+        >
+          {direction === "sent" ? "Request sent" : "Wants to connect"}
+        </span>
+      </div>
     </div>
   )
 }
 
 /* ── Builder Card (carousel) ── */
+interface MiniBuilder {
+  id: string
+  handle: string | null
+  archetype: string | null
+  avatar_url: string | null
+  skills: string[] | null
+  talent_tags?: string[] | null
+  is_verified?: boolean
+  match_reasons?: string[] | null
+}
+
 function NetworkBuilderCard({
   builder,
   currentUserId,
-  badge,
 }: {
-  builder: UserProfile | SuggestedBuilder
+  builder: MiniBuilder
   currentUserId?: string
-  badge?: string
 }) {
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
   const displayName = builder.handle ? `@${builder.handle}` : "Anonymous"
-  const firstSkill = (builder.skills ?? [])[0] ?? null
+  const allSkills = [
+    ...new Set([...(builder.talent_tags ?? []), ...(builder.skills ?? [])]),
+  ]
   const isOwnCard = currentUserId === builder.id
 
   return (
     <Link
       href={builder.handle ? `/dashboard/builders/${builder.handle}` : "#"}
-      className="block w-full h-full bg-card border border-border rounded-lg p-4 hover:border-primary transition-colors"
+      className="block aspect-square bg-card border border-border rounded-xl p-3 hover:border-primary transition-colors overflow-hidden"
     >
-      <div className="flex flex-col items-center text-center">
+      <div className="h-full flex flex-col items-center text-center">
+        {/* Avatar */}
         <div
-          className="w-12 h-12 rounded-full border-[3px] overflow-hidden mb-3"
+          className="w-20 h-20 rounded-full border-[3px] overflow-hidden shrink-0"
           style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
         >
           {builder.avatar_url ? (
@@ -131,33 +191,64 @@ function NetworkBuilderCard({
             />
           )}
         </div>
-        <div className="flex items-center gap-1 mb-1">
-          <h3 className="font-display font-bold text-foreground text-sm">{displayName}</h3>
+
+        {/* Name */}
+        <div className="flex items-center gap-1 mt-3 shrink-0">
+          <h3 className="font-display font-bold text-foreground text-xs truncate max-w-[90px]">{displayName}</h3>
           {builder.is_verified && (
-            <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-              <Check className="w-2.5 h-2.5 text-primary-foreground" />
+            <div className="w-3.5 h-3.5 bg-primary rounded-full flex items-center justify-center shrink-0">
+              <Check className="w-2 h-2 text-primary-foreground" />
             </div>
           )}
         </div>
-        {archetype && (
-          <span
-            className="px-2 py-0.5 rounded text-xs mb-2"
-            style={{
-              backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-              color: `var(${archetype.colorVar})`,
-            }}
-          >
-            {archetype.label}
-          </span>
-        )}
-        {firstSkill && <p className="text-muted-foreground text-xs mb-1">{firstSkill}</p>}
-        {badge && (
-          <span className="mt-2 px-2 py-0.5 bg-primary/20 text-primary text-xs rounded">
-            {badge}
-          </span>
-        )}
+
+        {/* Skills — fixed height placeholder so layout never shifts */}
+        <div className="flex items-center justify-center h-9 mt-3 shrink-0">
+          {allSkills.length > 0 && <SkillIconRow skills={allSkills} max={4} />}
+        </div>
+
+
+        {/* Match reason tags */}
+        {(builder.match_reasons?.length ?? 0) > 0 && (() => {
+          const MAX = 3
+          const reasons = builder.match_reasons ?? []
+          const visible = reasons.slice(0, MAX)
+          const extra = reasons.length - MAX
+          return (
+            <div className="flex flex-wrap justify-center gap-1 mt-2 w-full shrink-0 max-h-[3.5rem] overflow-hidden">
+              {visible.map((reason, i) => {
+                const isSkillMatch = reason.startsWith("Has ")
+                return (
+                  <span
+                    key={i}
+                    className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono leading-none"
+                    style={isSkillMatch ? {
+                      background: `color-mix(in oklch, #22c55e 15%, transparent)`,
+                      color: "#22c55e",
+                      border: `1px solid color-mix(in oklch, #22c55e 35%, transparent)`,
+                      fontWeight: 600,
+                    } : {
+                      background: `color-mix(in oklch, var(--muted-foreground) 10%, transparent)`,
+                      color: "var(--muted-foreground)",
+                      border: `1px solid color-mix(in oklch, var(--muted-foreground) 20%, transparent)`,
+                    }}
+                  >
+                    {reason}
+                  </span>
+                )
+              })}
+              {extra > 0 && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono leading-none bg-muted text-muted-foreground">
+                  +{extra}
+                </span>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* Connect — always pinned */}
         {!isOwnCard && (
-          <div className="mt-3 w-full" onClick={(e) => e.preventDefault()}>
+          <div className="w-full mt-auto shrink-0" onClick={(e) => e.preventDefault()}>
             <ConnectButton targetUserId={builder.id} />
           </div>
         )}
@@ -182,7 +273,15 @@ function BuildersSwipeCard({
   const startRef = useRef({ x: 0, y: 0 })
   const archetype = ARCHETYPES.find((a) => a.id === builder.archetype)
   const displayName = builder.handle ? `@${builder.handle}` : "Anonymous"
-  const firstSkill = (builder.skills ?? [])[0] ?? null
+  const bannerUrl = (builder as UserProfile).banner_url ?? null
+  const allSkills = [
+    ...new Set([...(builder.talent_tags ?? []), ...(builder.skills ?? [])]),
+  ]
+  const matchReasons = ("match_reasons" in builder ? builder.match_reasons : null) ?? []
+  const featuredPoaps = (() => {
+    const fp = (builder as UserProfile).featured_poaps ?? []
+    return (builder.poaps ?? []).filter((p) => fp.includes(p.id))
+  })()
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -242,6 +341,10 @@ function BuildersSwipeCard({
   const skipOpacity = Math.min(1, Math.max(0, -dragX / 150))
   const connectOpacity = Math.min(1, Math.max(0, dragX / 150))
 
+  const archetypeGradient = archetype
+    ? `linear-gradient(135deg, color-mix(in oklch, var(${archetype.colorVar}) 35%, transparent), var(--card))`
+    : "linear-gradient(135deg, color-mix(in oklch, var(--primary) 20%, transparent), var(--card))"
+
   return (
     <div
       className={cn("absolute inset-0 touch-none", isTop ? "z-10" : "z-0")}
@@ -257,68 +360,134 @@ function BuildersSwipeCard({
       onPointerUp={handlePointerUp}
     >
       <div className="h-full bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
+
+        {/* ── COLLAPSED VIEW ── */}
         {!isExpanded ? (
           <div className="h-full flex flex-col">
-            <div className="relative flex-1 bg-linear-to-b from-primary/20 to-card flex items-center justify-center min-h-62.5">
-              <div
-                className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 overflow-hidden bg-muted"
-                style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
-              >
-                {builder.avatar_url ? (
-                  <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+            {/* Banner + overlapping avatar */}
+            <div className="relative shrink-0">
+              <div className="h-36 w-full overflow-hidden">
+                {bannerUrl ? (
+                  <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div
-                    className="w-full h-full"
-                    style={{
-                      backgroundColor: archetype
-                        ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
-                        : "var(--muted)",
-                    }}
-                  />
+                  <div className="w-full h-full" style={{ background: archetypeGradient }} />
                 )}
+                <div className="absolute inset-0 bg-linear-to-t from-card/80 via-transparent to-transparent" />
               </div>
-              {builder.is_verified && (
-                <div className="absolute top-4 right-4 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <Check className="w-5 h-5 text-primary-foreground" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-10">
+                <div className="relative">
+                  <div
+                    className="w-32 h-32 rounded-full border-4 overflow-hidden bg-muted"
+                    style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
+                  >
+                    {builder.avatar_url ? (
+                      <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full" style={{ backgroundColor: archetype ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)` : "var(--muted)" }} />
+                    )}
+                  </div>
+                  {builder.is_verified && (
+                    <div className="absolute bottom-0.5 right-0.5 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-card">
+                      <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                    </div>
+                  )}
                 </div>
-              )}
-              {archetype && (
-                <div
-                  className="absolute bottom-4 left-4 px-3 py-1 rounded-full text-sm font-medium"
-                  style={{
-                    backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-                    color: `var(${archetype.colorVar})`,
-                  }}
-                >
-                  {archetype.label}
-                </div>
-              )}
+              </div>
             </div>
 
-            <div className="p-6 flex flex-col">
-              <h3 className="font-display font-bold text-2xl text-foreground mb-1">{displayName}</h3>
-              <p className="text-muted-foreground text-sm mb-2">
-                {[builder.city, firstSkill].filter(Boolean).join(" · ") || "Builder"}
-              </p>
-              {builder.bio && (
-                <p className="text-foreground/80 text-sm mb-4 line-clamp-2">{builder.bio}</p>
-              )}
-              {builder.onchain_since && (
-                <p className="font-mono text-muted-foreground text-xs mb-4">
-                  Onchain since {builder.onchain_since}
-                </p>
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto pt-20 px-5 flex flex-col items-center text-center gap-4">
+              {/* Name + archetype */}
+              <div className="flex flex-col items-center gap-1.5">
+                <h3 className="font-display font-bold text-2xl text-foreground">{displayName}</h3>
+                {archetype && (
+                  <span
+                    className="px-3 py-0.5 rounded-full text-sm font-medium"
+                    style={{
+                      backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
+                      color: `var(${archetype.colorVar})`,
+                    }}
+                  >
+                    {archetype.label}
+                  </span>
+                )}
+              </div>
+
+              {/* Skills */}
+              {allSkills.length > 0 && (
+                <div className="flex gap-3 w-full justify-center items-center">
+                  {allSkills.slice(0, 4).map((skill) => (
+                    <div key={skill} className="w-20 shrink-0">
+                      <SkillCard skill={skill} size="md" />
+                    </div>
+                  ))}
+                  {allSkills.length > 4 && (
+                    <span className="shrink-0 text-[10px] font-mono font-semibold text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted border border-border/60">
+                      +{allSkills.length - 4}
+                    </span>
+                  )}
+                </div>
               )}
 
+              {/* POAPs moved to the expanded "more details" view — swipe up to see them */}
+
+              {/* Tags — match row + suggestion rows separated */}
+              {matchReasons.length > 0 && (() => {
+                const skillMatches = matchReasons.filter(r => r.startsWith("Has "))
+                const suggestions = matchReasons.filter(r => !r.startsWith("Has "))
+                return (
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    {/* Skill match tags — single row */}
+                    {skillMatches.length > 0 && (
+                      <div className="flex items-center justify-center gap-1.5 w-full overflow-hidden">
+                        {skillMatches.slice(0, 2).map((reason, i) => (
+                          <span key={i} className="shrink-0 px-2.5 py-1 rounded-full text-xs font-mono font-semibold"
+                            style={{
+                              background: `color-mix(in oklch, #22c55e 15%, transparent)`,
+                              color: "#22c55e",
+                              border: `1px solid color-mix(in oklch, #22c55e 35%, transparent)`,
+                            }}
+                          >{reason}</span>
+                        ))}
+                        {skillMatches.length > 2 && (
+                          <span className="shrink-0 text-[10px] font-mono text-muted-foreground">+{skillMatches.length - 2}</span>
+                        )}
+                      </div>
+                    )}
+                    {/* Suggestion tags — up to 2 rows */}
+                    {suggestions.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-1.5 w-full max-h-[3.5rem] overflow-hidden">
+                        {suggestions.slice(0, 4).map((reason, i) => (
+                          <span key={i} className="shrink-0 px-2.5 py-1 rounded-full text-xs font-mono"
+                            style={{
+                              background: `color-mix(in oklch, var(--muted-foreground) 10%, transparent)`,
+                              color: "var(--muted-foreground)",
+                              border: `1px solid color-mix(in oklch, var(--muted-foreground) 20%, transparent)`,
+                            }}
+                          >{reason}</span>
+                        ))}
+                        {suggestions.length > 4 && (
+                          <span className="shrink-0 text-[10px] font-mono text-muted-foreground">+{suggestions.length - 4}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+            </div>
+
+            {/* Fixed bottom: swipe hint + connect */}
+            <div className="shrink-0 px-5 pb-5 pt-2 flex flex-col gap-2">
               {isTop && (
                 <button
                   onClick={() => setIsExpanded(true)}
-                  className="flex items-center justify-center gap-2 text-primary text-sm mb-4 cursor-pointer"
+                  className="flex items-center justify-center gap-2 text-white text-sm cursor-pointer"
                 >
                   <ChevronUp className="w-4 h-4 animate-bounce" />
                   Swipe up for more details
                 </button>
               )}
-
               <Button
                 type="button"
                 variant="pill"
@@ -348,107 +517,165 @@ function BuildersSwipeCard({
             )}
           </div>
         ) : (
+
+        /* ── EXPANDED VIEW ── */
           <div className="h-full flex flex-col overflow-y-auto">
-            <div className="p-4 flex items-center gap-4 border-b border-border sticky top-0 bg-card z-10">
-              <div
-                className="w-16 h-16 rounded-full border-[3px] overflow-hidden shrink-0 bg-muted"
-                style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
-              >
-                {builder.avatar_url ? (
-                  <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
-                ) : (
+            {/* Sticky header: banner + avatar + name + archetype + close */}
+            <div className="sticky top-0 bg-card z-10">
+              <div className="relative">
+                <div className="h-20 w-full overflow-hidden">
+                  {bannerUrl ? (
+                    <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full" style={{ background: archetypeGradient }} />
+                  )}
+                  <div className="absolute inset-0 bg-linear-to-t from-card via-transparent to-transparent" />
+                </div>
+                {/* Avatar half-overlapping */}
+                <div className="absolute bottom-0 left-4 translate-y-1/2 z-10">
                   <div
-                    className="w-full h-full"
-                    style={{
-                      backgroundColor: archetype
-                        ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
-                        : "var(--muted)",
-                    }}
-                  />
-                )}
+                    className="w-14 h-14 rounded-full border-[3px] overflow-hidden bg-muted"
+                    style={{ borderColor: archetype ? `var(${archetype.colorVar})` : "var(--border)" }}
+                  >
+                    {builder.avatar_url ? (
+                      <img src={builder.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div
+                        className="w-full h-full"
+                        style={{
+                          backgroundColor: archetype
+                            ? `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`
+                            : "var(--muted)",
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {/* Close */}
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-display font-bold text-xl text-foreground">{displayName}</h3>
-                  {builder.is_verified && (
-                    <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                      <Check className="w-3 h-3 text-primary-foreground" />
-                    </div>
+              {/* Name + archetype row, spaced for avatar */}
+              <div className="pt-9 px-4 pb-3 border-b border-border flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-bold text-xl text-foreground truncate">{displayName}</h3>
+                    {builder.is_verified && (
+                      <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center shrink-0">
+                        <Check className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  {archetype && (
+                    <span
+                      className="inline-block px-2 py-0.5 rounded text-xs mt-0.5"
+                      style={{
+                        backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
+                        color: `var(${archetype.colorVar})`,
+                      }}
+                    >
+                      {archetype.label}
+                    </span>
                   )}
                 </div>
-                {archetype && (
-                  <span
-                    className="px-2 py-0.5 rounded text-xs"
-                    style={{
-                      backgroundColor: `color-mix(in oklch, var(${archetype.colorVar}) 20%, transparent)`,
-                      color: `var(${archetype.colorVar})`,
-                    }}
-                  >
-                    {archetype.label}
-                  </span>
-                )}
               </div>
-              <button
-                onClick={() => setIsExpanded(false)}
-                className="p-2 rounded-full bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </button>
             </div>
 
-            <div className="p-6 flex-1">
+            <div className="p-5 flex-1 flex flex-col gap-6">
+              {/* Why you match — same suggested tags shown on the collapsed card */}
+              {matchReasons.length > 0 && (() => {
+                const skillMatches = matchReasons.filter(r => r.startsWith("Has "))
+                const suggestions = matchReasons.filter(r => !r.startsWith("Has "))
+                return (
+                  <div>
+                    <h4 className="font-display font-bold text-sm text-foreground mb-3">Why you match</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {skillMatches.map((reason, i) => (
+                        <span key={`s${i}`} className="px-2.5 py-1 rounded-full text-xs font-mono font-semibold"
+                          style={{
+                            background: `color-mix(in oklch, #22c55e 15%, transparent)`,
+                            color: "#22c55e",
+                            border: `1px solid color-mix(in oklch, #22c55e 35%, transparent)`,
+                          }}
+                        >{reason}</span>
+                      ))}
+                      {suggestions.map((reason, i) => (
+                        <span key={`g${i}`} className="px-2.5 py-1 rounded-full text-xs font-mono"
+                          style={{
+                            background: `color-mix(in oklch, var(--muted-foreground) 10%, transparent)`,
+                            color: "var(--muted-foreground)",
+                            border: `1px solid color-mix(in oklch, var(--muted-foreground) 20%, transparent)`,
+                          }}
+                        >{reason}</span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* About */}
               {builder.bio && (
-                <div className="mb-6">
+                <div>
                   <h4 className="font-display font-bold text-sm text-foreground mb-2">About</h4>
                   <p className="text-foreground/80 text-sm">{builder.bio}</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {builder.city && (
-                  <div className="bg-background rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                      <MapPin className="w-3 h-3" />
-                      Location
-                    </div>
-                    <p className="text-foreground text-sm font-medium">{builder.city}</p>
-                  </div>
-                )}
-                {firstSkill && (
-                  <div className="bg-background rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                      <Briefcase className="w-3 h-3" />
-                      Skill
-                    </div>
-                    <p className="text-foreground text-sm font-medium">{firstSkill}</p>
-                  </div>
-                )}
-                {builder.onchain_since && (
-                  <div className="bg-background rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                      <Calendar className="w-3 h-3" />
-                      Onchain Since
-                    </div>
-                    <p className="text-foreground text-sm font-medium">{builder.onchain_since}</p>
-                  </div>
-                )}
-                <div className="bg-background rounded-lg p-3">
+              {/* Onchain since — no location revealed */}
+              {builder.onchain_since && (
+                <div className="bg-background rounded-lg p-3 w-fit">
                   <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                    <Users className="w-3 h-3" />
-                    Status
+                    <Calendar className="w-3 h-3" />
+                    Onchain Since
                   </div>
-                  <p className="text-foreground text-sm font-medium">
-                    {builder.is_verified ? "Verified" : "Unverified"}
-                  </p>
+                  <p className="text-foreground text-sm font-medium">{builder.onchain_since}</p>
                 </div>
-              </div>
+              )}
 
-              {builder.skills && builder.skills.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-display font-bold text-sm text-foreground mb-2">Skills</h4>
+              {/* Skills — icon cards */}
+              {allSkills.length > 0 && (
+                <div>
+                  <h4 className="font-display font-bold text-sm text-foreground mb-3">Skills</h4>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {allSkills.map((skill) => (
+                      <SkillCard key={skill} skill={skill} size="xs" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Featured POAPs */}
+              {featuredPoaps.length > 0 && (
+                <div>
+                  <h4 className="font-display font-bold text-sm text-foreground mb-3">POAPs</h4>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {featuredPoaps.map((poap) => (
+                      <Tooltip key={poap.id}>
+                        <TooltipTrigger asChild>
+                          <div className="aspect-square rounded-lg bg-muted border border-border flex items-center justify-center p-1.5">
+                            <img src={poap.image_url} alt={poap.name} className="w-full aspect-square rounded-full object-cover" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-[10px] font-mono">{poap.name}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Seeking */}
+              {(builder as UserProfile).seeking_skills?.length > 0 && (
+                <div>
+                  <h4 className="font-display font-bold text-sm text-foreground mb-2">Looking for</h4>
                   <div className="flex flex-wrap gap-2">
-                    {builder.skills.map((skill, i) => (
-                      <span key={i} className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs">
+                    {(builder as UserProfile).seeking_skills.map((skill, i) => (
+                      <span key={i} className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-xs font-mono border border-border">
                         {skill}
                       </span>
                     ))}
@@ -456,8 +683,9 @@ function BuildersSwipeCard({
                 </div>
               )}
 
+              {/* Languages */}
               {builder.languages && builder.languages.length > 0 && (
-                <div className="mb-6">
+                <div>
                   <h4 className="font-display font-bold text-sm text-foreground mb-2">Languages</h4>
                   <div className="flex flex-wrap gap-2">
                     {builder.languages.map((lang, i) => (
@@ -716,16 +944,11 @@ export default function BuildersPage() {
   } = useFilteredCommunities({})
   const communities = communityData?.pages.flatMap((p) => p.communities) ?? []
   const myCommunities = communities.filter((c) => c.is_member)
-  // Featured stays visible even after a left swipe — curated content is never
-  // hidden by discovery rejections
   const featuredCommunities = communities.filter((c) => !c.is_member && c.is_featured)
   const otherCommunities = communities.filter(
     (c) => !c.is_member && !c.is_featured && !swipedCommunityIds.has(c.id),
   )
 
-  // Builders — swiped ids hide cards in BOTH views for the session
-  // (refetch-safe: after connecting, the suggestions list shrinks
-  // server-side without skipping cards)
   const visibleSuggestedBuilders = (suggestedBuilders ?? []).filter(
     (b) => !swipedBuilderIds.has(b.id),
   )
@@ -738,13 +961,12 @@ export default function BuildersPage() {
     setSwipedBuilderIds((prev) => new Set(prev).add(builderId))
   }
 
-  // Community swipe — only non-members, minus the ones swiped this session
   const remainingCommunityCards = communities.filter(
     (c) => !c.is_member && !swipedCommunityIds.has(c.id),
   )
 
   return (
-    <PageContainer className="flex flex-col gap-6">
+    <PageContainer className="flex flex-col gap-4 !pt-4 !pb-4 lg:!py-6 h-full overflow-hidden">
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <h1 className="font-display font-bold text-2xl text-foreground">Network</h1>
@@ -779,7 +1001,7 @@ export default function BuildersPage() {
       </Tabs>
 
       {/* ══════════════════════════════════════════════ */}
-      {/* ── HOMIES TAB ── */}
+      {/* ── BUILDERS TAB ── */}
       {/* ══════════════════════════════════════════════ */}
       {activeTab === "builders" && (
         <>
@@ -838,101 +1060,146 @@ export default function BuildersPage() {
             </div>
           )}
 
-          {/* List Mode */}
+          {/* List Mode — single container with inner tabs */}
           {viewMode === "list" && (
-            <div className="space-y-8">
-              {/* My Network */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display font-bold text-lg text-foreground">My Network</h2>
-                  {acceptedFriends && acceptedFriends.length > 0 && (
-                    <Link href="/dashboard/builders/explore" className="text-primary text-sm font-medium flex items-center gap-1">
-                      See all <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  )}
+            <Card className="overflow-hidden flex flex-col flex-1 min-h-0">
+              <Tabs defaultValue="suggested" className="flex flex-col h-full min-h-0">
+                <div className="shrink-0 border-b border-border px-4 pt-0">
+                  <TabsList
+                    variant="line"
+                    className="w-full justify-start gap-0 bg-transparent p-0"
+                  >
+                    <TabsTrigger value="suggested" className="font-mono text-xs px-4 py-2.5 data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                      Suggested
+                      {visibleSuggestedBuilders.length > 0 && (
+                        <span className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-primary/15 text-primary tabular-nums">
+                          {visibleSuggestedBuilders.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="network" className="font-mono text-xs px-4 py-2.5 data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                      My Network
+                      {(acceptedFriends?.length ?? 0) > 0 && (
+                        <span className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-primary/15 text-primary tabular-nums">
+                          {acceptedFriends!.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    {(pendingLoading || (pendingFriendships && pendingFriendships.length > 0)) && (
+                      <TabsTrigger value="pending" className="font-mono text-xs px-4 py-2.5 data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                        Pending
+                        {(pendingFriendships?.length ?? 0) > 0 && (
+                          <span className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-primary/15 text-primary tabular-nums">
+                            {pendingFriendships!.length}
+                          </span>
+                        )}
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
                 </div>
-                {friendsLoading ? (
-                  <CardRail>
-                    {[1, 2].map((i) => <RailItem key={i}><CardSkeleton /></RailItem>)}
-                  </CardRail>
-                ) : acceptedFriends && acceptedFriends.length > 0 ? (
-                  <CardRail>
-                    {acceptedFriends.slice(0, 4).map((f) => (
-                      <RailItem key={f.id}>
-                        <NetworkBuilderCard
-                          builder={{
-                            id: f.other_user.id,
-                            handle: f.other_user.handle,
-                            archetype: f.other_user.archetype,
-                            avatar_url: f.other_user.avatar_url,
-                            is_verified: false,
-                            skills: null,
-                            languages: null,
-                            bio: null,
-                            city: null,
-                            onchain_since: null,
-                          } as UserProfile}
-                          currentUserId={profile?.id}
-                        />
-                      </RailItem>
-                    ))}
-                  </CardRail>
-                ) : (
-                  <EmptyPlaceholder type="network" />
-                )}
-              </section>
 
-              {/* Suggested For You */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display font-bold text-lg text-foreground">Suggested for you</h2>
-                  <Link href="/dashboard/builders/explore" className="text-primary text-sm font-medium flex items-center gap-1">
-                    View more <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-                {suggestedLoading ? (
-                  <CardRail>
-                    {[1, 2, 3].map((i) => <RailItem key={i}><CardSkeleton /></RailItem>)}
-                  </CardRail>
-                ) : visibleSuggestedBuilders.length > 0 ? (
-                  <CardRail>
-                    {visibleSuggestedBuilders.slice(0, 4).map((builder) => (
-                      <RailItem key={builder.id}>
-                        <NetworkBuilderCard
-                          builder={builder}
-                          currentUserId={profile?.id}
-                          badge={builder.match_reasons?.[0]}
-                        />
-                      </RailItem>
-                    ))}
-                  </CardRail>
-                ) : (
-                  <div className="bg-card border border-dashed border-border rounded-lg p-12 flex flex-col items-center gap-3 text-center">
-                    <p className="text-muted-foreground text-sm">No suggested builders yet. Complete your profile to get better matches!</p>
-                  </div>
-                )}
-              </section>
-
-              {/* Pending Requests */}
-              {(pendingLoading || (pendingFriendships && pendingFriendships.length > 0)) && (
-                <section>
-                  <h2 className="font-display font-bold text-lg text-foreground mb-4">Pending requests</h2>
-                  {pendingLoading ? (
-                    <CardRail>
-                      {[1, 2].map((i) => <RailItem key={i}><CardSkeleton /></RailItem>)}
-                    </CardRail>
+                {/* ── My Network ── */}
+                <TabsContent value="network" className="flex-1 overflow-y-auto min-h-0 p-4">
+                  {friendsLoading ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {[1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)}
+                    </div>
+                  ) : acceptedFriends && acceptedFriends.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {acceptedFriends.slice(0, 8).map((f) => (
+                          <NetworkBuilderCard
+                            key={f.id}
+                            builder={f.other_user}
+                            currentUserId={profile?.id}
+                          />
+                        ))}
+                      </div>
+                      {acceptedFriends.length > 8 && (
+                        <div className="mt-4 text-center">
+                          <Link href="/dashboard/builders/explore" className="text-primary text-sm font-medium inline-flex items-center gap-1">
+                            See all {acceptedFriends.length} connections <ArrowRight className="w-4 h-4" />
+                          </Link>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <CardRail>
-                      {(pendingFriendships ?? []).map((f) => (
-                        <RailItem key={f.id}>
-                          <PendingRequestCard friendship={f} />
-                        </RailItem>
-                      ))}
-                    </CardRail>
+                    <EmptyPlaceholder type="network" />
                   )}
-                </section>
-              )}
-            </div>
+                </TabsContent>
+
+                {/* ── Suggested ── */}
+                <TabsContent value="suggested" className="flex-1 overflow-y-auto min-h-0 p-4">
+                  {suggestedLoading ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {[1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)}
+                    </div>
+                  ) : visibleSuggestedBuilders.length > 0 ? (
+                    <>
+                      {swipedBuilderIds.size > 0 && (
+                        <div className="flex justify-end mb-3">
+                          <button
+                            onClick={() => setSwipedBuilderIds(new Set())}
+                            className="text-[11px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <ArrowRight className="w-3 h-3 rotate-180" />
+                            Reset skipped ({swipedBuilderIds.size})
+                          </button>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {visibleSuggestedBuilders.slice(0, 8).map((builder) => (
+                          <NetworkBuilderCard
+                            key={builder.id}
+                            builder={builder}
+                            currentUserId={profile?.id}
+                          />
+                        ))}
+                      </div>
+                      {visibleSuggestedBuilders.length > 8 && (
+                        <div className="mt-4 text-center">
+                          <Link href="/dashboard/builders/explore" className="text-primary text-sm font-medium inline-flex items-center gap-1">
+                            View all {visibleSuggestedBuilders.length} suggestions <ArrowRight className="w-4 h-4" />
+                          </Link>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center py-12 gap-3">
+                      <p className="text-muted-foreground text-sm">
+                        {swipedBuilderIds.size > 0 ? "You've seen all suggestions." : "No suggested builders yet. Complete your profile to get better matches!"}
+                      </p>
+                      {swipedBuilderIds.size > 0 && (
+                        <button
+                          onClick={() => setSwipedBuilderIds(new Set())}
+                          className="text-xs font-mono text-primary hover:underline cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <ArrowRight className="w-3 h-3 rotate-180" />
+                          Reset skipped ({swipedBuilderIds.size})
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* ── Pending ── */}
+                {(pendingLoading || (pendingFriendships && pendingFriendships.length > 0)) && (
+                  <TabsContent value="pending" className="flex-1 overflow-y-auto min-h-0 p-4">
+                    {pendingLoading ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {[1, 2].map((i) => <CardSkeleton key={i} />)}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {(pendingFriendships ?? []).map((f) => (
+                          <PendingRequestCard key={f.id} friendship={f} />
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
+              </Tabs>
+            </Card>
           )}
         </>
       )}

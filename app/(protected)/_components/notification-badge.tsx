@@ -26,8 +26,8 @@ export function NotificationBadge({
           className,
         )}
         style={{
-          background: "var(--destructive)",
-          color: "var(--destructive-foreground)",
+          background: "var(--builder-archetype)",
+          color: "var(--background)",
         }}
       >
         {label}

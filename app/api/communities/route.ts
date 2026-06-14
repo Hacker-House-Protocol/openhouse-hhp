@@ -3,6 +3,7 @@ import { privy } from "@/lib/privy"
 import { supabaseServer } from "@/lib/supabase-server"
 import { createCommunitySchema } from "@/lib/schemas/community"
 import { geocodeAndUpdate } from "@/lib/geocode"
+import { saveGates } from "@/lib/gate-helpers"
 
 async function getPrivyUserId(req: NextRequest): Promise<string | null> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -122,7 +123,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const isWorldwide = parsed.data.is_worldwide ?? false
+  const { gates, ...communityFields } = parsed.data
+  const isWorldwide = communityFields.is_worldwide ?? false
   const cityVal = isWorldwide ? null : (parsed.data.city || null)
   const countryVal = isWorldwide ? null : (parsed.data.country || null)
 
@@ -130,15 +132,15 @@ export async function POST(req: NextRequest) {
     .from("communities")
     .insert({
       creator_id: user.id,
-      name: parsed.data.name,
-      description: parsed.data.description,
-      category: parsed.data.category,
-      image_url: parsed.data.image_url || null,
+      name: communityFields.name,
+      description: communityFields.description,
+      category: communityFields.category,
+      image_url: communityFields.image_url || null,
       city: cityVal,
       country: countryVal,
       is_worldwide: isWorldwide,
-      verification_requested: parsed.data.verification_requested ?? false,
-      featured_requested: parsed.data.featured_requested ?? false,
+      verification_requested: communityFields.verification_requested ?? false,
+      featured_requested: communityFields.featured_requested ?? false,
     })
     .select(`*, creator:users!creator_id(id, handle, archetype, avatar_url)`)
     .single()
@@ -155,10 +157,15 @@ export async function POST(req: NextRequest) {
     role: "creator",
   })
 
+  // Save gates if provided
+  if (gates?.length) {
+    await saveGates("community", data.id, gates)
+  }
+
   // Geocode only if specific location provided (not worldwide)
   if (!isWorldwide && cityVal && countryVal) {
     geocodeAndUpdate("communities", data.id, cityVal, countryVal)
   }
 
-  return NextResponse.json({ community: { ...data, member_count: 1, is_member: true } }, { status: 201 })
+  return NextResponse.json({ community: { ...data, member_count: 1, is_member: true, gates: gates ?? [] } }, { status: 201 })
 }

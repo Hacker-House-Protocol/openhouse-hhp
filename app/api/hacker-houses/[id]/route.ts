@@ -39,6 +39,12 @@ export async function GET(
     return NextResponse.json({ message: "Hacker House not found" }, { status: 404 })
   }
 
+  // Fetch gates for this house
+  const { data: gates } = await supabaseServer
+    .from("house_gates")
+    .select("*")
+    .eq("hacker_house_id", id)
+
   const participants = (data.all_applications ?? [])
     .filter((a: { status: string }) => a.status === "accepted")
     .map((a: { applicant: unknown }) => a.applicant)
@@ -50,6 +56,7 @@ export async function GET(
     participants,
     participants_count: participants.length + (creatorAlsoPaid ? 0 : 1),
     all_applications: undefined,
+    gates: gates ?? [],
   }
 
   return NextResponse.json({ hacker_house: hackerHouse })

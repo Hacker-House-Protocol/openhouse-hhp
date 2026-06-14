@@ -1,17 +1,39 @@
 import { z } from "zod"
 import { ARCHETYPE_IDS } from "@/lib/onboarding"
 
-const APPLICATION_TYPES = ["open", "invite_only", "curated"] as const
+const APPLICATION_TYPES = ["open", "gated", "invite_only", "curated"] as const
 const EVENT_TIMINGS = ["before", "during", "after"] as const
 
 const HOUSE_MODALITIES = ["free", "paid", "staking"] as const
 const CONTRACT_TYPES = ["multisig", "admin_wallet"] as const
+const HOUSE_TYPES = ["co_payment", "staking", "hybrid"] as const
+const YIELD_MODES = ["none", "gmx"] as const
+const YIELD_DESTS = ["host", "builders"] as const
+
+// ── Gate schemas ──────────────────────────────────────────────────────────
+const GATE_TYPES = ["poap", "skill"] as const
+
+const poapConfigSchema = z.object({
+  mode: z.literal("specific"),
+  event_ids: z.array(z.string()).min(1, "Select at least one POAP"),
+  poap_names: z.array(z.string()).optional(),
+  poap_images: z.array(z.string()).optional(),
+})
+
+const skillConfigSchema = z.object({
+  skills: z.array(z.string()).min(1, "Select at least one skill"),
+})
+
+export const gateSchema = z.union([
+  z.object({ gate_type: z.literal("poap"), config: poapConfigSchema }),
+  z.object({ gate_type: z.literal("skill"), config: skillConfigSchema }),
+])
 
 export const createHackerHouseSchema = z.object({
   name: z.string().min(3, "Minimum 3 characters").max(80),
   modality: z.enum(HOUSE_MODALITIES, { required_error: "Select a modality" }),
   contract_type: z.enum(CONTRACT_TYPES).optional(),
-  price_per_person: z.number().min(0).optional(),
+  price_per_person: z.number().min(1, "Must be at least 1 USDC").optional(),
   sponsor_name: z.string().max(100).optional(),
   sponsor_community_id: z.string().uuid().optional(),
   region: z.string().optional(),
@@ -41,18 +63,40 @@ export const createHackerHouseSchema = z.object({
   application_form_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   lat: z.number().optional(),
   lng: z.number().optional(),
+  // Web3 escrow fields — required when modality is paid or staking
+  host_safe: z.string().optional(),
+  deposit_amount_usdc: z.number().positive("Must be greater than 0").optional(),
+  withdraw_date: z.string().optional(),
+  house_type: z.enum(HOUSE_TYPES).optional(),
+  yield_mode: z.enum(YIELD_MODES).optional(),
+  yield_dest: z.enum(YIELD_DESTS).optional(),
   has_event: z.boolean().optional(),
+  event_id: z.string().uuid().optional(),
   event_name: z.string().optional(),
   event_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   event_start_date: z.string().optional(),
   event_end_date: z.string().optional(),
   event_timing: z.array(z.enum(EVENT_TIMINGS)).optional(),
+  event_goers_only: z.boolean().optional(),
+  gates: z.array(gateSchema).optional(),
+  invited_user_ids: z.array(z.string()).optional(),
 })
+
+const _baseSchema = createHackerHouseSchema
+
+export const createHackerHouseSchemaRefined = _baseSchema.refine(
+  (data) => data.modality === "free" || (data.withdraw_date && data.withdraw_date.length > 0),
+  { message: "Withdraw date is required", path: ["withdraw_date"] },
+).refine(
+  (data) => data.modality === "free" || (data.deposit_amount_usdc != null && data.deposit_amount_usdc > 0),
+  { message: "Price per person is required", path: ["price_per_person"] },
+)
 
 export type CreateHackerHouseInput = z.infer<typeof createHackerHouseSchema>
 
 export const updateHackerHouseSchema = createHackerHouseSchema.partial().extend({
   status: z.enum(["open", "full", "active", "finished"]).optional(),
+  escrow_address: z.string().optional(), // saved after contract deploy
 })
 
 export type UpdateHackerHouseInput = z.infer<typeof updateHackerHouseSchema>
@@ -69,4 +113,6 @@ export const reviewHackerHouseApplicationSchema = z.object({
 
 export type ReviewHackerHouseApplicationInput = z.infer<typeof reviewHackerHouseApplicationSchema>
 
-export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES, CONTRACT_TYPES }
+export { APPLICATION_TYPES, EVENT_TIMINGS, HOUSE_MODALITIES, CONTRACT_TYPES, HOUSE_TYPES, YIELD_MODES, YIELD_DESTS, GATE_TYPES }
+
+export type GateInput = z.infer<typeof gateSchema>
