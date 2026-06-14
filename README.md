@@ -78,7 +78,7 @@ Your Hacker House confirmation is a **Booking NFT on Arbitrum** — with dates, 
 
 ### Hacker Houses — Full E2E On-Chain Flow
 - **Create** — multi-step wizard: basics, access rules, payment/escrow config, check-in details, images
-- **Deploy** — one click deploys a new HackerHouseEscrow + SpotNFT + YieldAdapter on Arbitrum via Factory (single transaction)
+- **Deploy** — one click deploys a new HackerHouseEscrow + SpotNFT + YieldAdapter on Arbitrum via Factory (single transaction). If the deploy is rejected or fails, the house is created in the DB and the host can **retry the deploy** from its payment page — it's never left in a half-created state
 - **Deposit** — builders mint testnet USDC, then Pay My Share in a single gasless transaction (approve + deposit batched via ZeroDev)
 - **SpotNFT** — each deposit mints a Key NFT to the builder as proof of their spot. NFT metadata displays "House Name - Spot #1" (1-indexed). The house name is passed from the creation form through Factory → SpotNFT constructor
 - **Yield** — staking deposits generate yield in real time (10% APY on testnet via MockYieldAdapter, GMX V2 on mainnet). Yield goes to host or is split among builders, configurable at creation
@@ -91,13 +91,14 @@ Your Hacker House confirmation is a **Booking NFT on Arbitrum** — with dates, 
 - Full application management — accept, reject, waitlist
 
 ### Identity Gates
-- Hosts set verifiable on-chain requirements at house creation: minimum POAP count, specific event POAPs, Talent Protocol skills
+- Hosts set verifiable on-chain requirements at creation: minimum POAP count, specific event POAPs, Talent Protocol skills
+- The same gate engine protects **Hacker Houses, Communities, and Hack Spaces** — one evaluation path (AND across gates, OR within a gate)
 - Gate evaluation happens server-side — applicants see ✓/✗, never their raw data
 - Builder profile gates are aggregated across all linked wallets (a POAP in any wallet passes the gate)
 - Privacy-first: gate results reveal no personal data to the host
 
 ### Builder Discovery
-- Browse builders by archetype (Visionary / Strategist / Strategist), skills, location, and language
+- Browse builders by archetype (Visionary / Strategist / Builder), skills, location, and language
 - Suggested connections based on your profile and activity
 - Follow builders and build your network
 - "Skills I'm looking for" — set complementary skills to improve match quality
@@ -393,7 +394,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_PRIVY_APP_ID=
 NEXT_PUBLIC_ZERODEV_PROJECT_ID=
-NEXT_PUBLIC_ARBITRUM_RPC_URL=
+NEXT_PUBLIC_ZERODEV_BUNDLER_URL=
+NEXT_PUBLIC_ZERODEV_PASSKEYS_URL=
 NEXT_PUBLIC_FACTORY_ADDRESS=
 NEXT_PUBLIC_USDC_ADDRESS=
 ```
