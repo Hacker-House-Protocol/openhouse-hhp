@@ -4,14 +4,14 @@ const phases = [
   {
     n: "1",
     label: "Buildathon",
-    tag: "NOW",
-    body: "On-chain pool + escrow + Booking NFT + yield via GMX + Communities as a growth layer",
+    tag: "DONE",
+    body: "On-chain escrow + SpotNFT + yield adapter + gasless deposits + cancel/refund + release + identity gates + multi-wallet + privacy model + communities",
     color: "#6EE76E",
   },
   {
     n: "2",
     label: "Phase 2",
-    body: "Sponsored houses · On-chain access filters (score, POAPs)",
+    body: "Hybrid staking mode · Sponsored houses · Human Passport + World ID verification",
     color: "#8B78E6",
   },
   {
@@ -40,7 +40,6 @@ const targets = [
 export function SlideRoadmap() {
   return (
     <SlideShell
-      index={10}
       eyebrow="Roadmap"
       title="This doesn't die on Monday."
     >

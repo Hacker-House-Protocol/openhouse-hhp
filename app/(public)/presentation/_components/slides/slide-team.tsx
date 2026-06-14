@@ -27,7 +27,6 @@ const team = [
 export function SlideTeam() {
   return (
     <SlideShell
-      index={11}
       eyebrow="Team"
       title="3 builders who lived the problem firsthand."
     >

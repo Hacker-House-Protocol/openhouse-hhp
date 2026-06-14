@@ -27,7 +27,6 @@ const gating = [
 export function SlideSolution() {
   return (
     <SlideShell
-      index={3}
       eyebrow="The Solution"
       title={
         <span className="font-mono">

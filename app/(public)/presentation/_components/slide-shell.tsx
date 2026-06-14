@@ -1,10 +1,7 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
-export const TOTAL_SLIDES = 12
-
 interface SlideShellProps {
-  index: number
   eyebrow?: string
   title?: ReactNode
   /** Optional kicker line under the title (lead paragraph). */
@@ -17,11 +14,11 @@ interface SlideShellProps {
 
 /**
  * Full-screen wrapper for a single deck slide. Handles the consistent layout:
- * slide counter (top-right), eyebrow, display title, lead, and a vertically
- * centered, internally-scrollable content area for overflow on small screens.
+ * eyebrow, display title, lead, and a vertically centered, internally-scrollable
+ * content area for overflow on small screens. The slide counter is rendered by
+ * the deck itself, not here.
  */
 export function SlideShell({
-  index,
   eyebrow,
   title,
   lead,
@@ -36,10 +33,6 @@ export function SlideShell({
         className
       )}
     >
-      <span className="pointer-events-none absolute top-5 right-6 z-20 font-mono text-xs tracking-[0.2em] text-[#7B7A8E]">
-        {String(index).padStart(2, "0")} / {String(TOTAL_SLIDES).padStart(2, "0")}
-      </span>
-
       <div className="no-scrollbar h-full overflow-y-auto">
         <div
           className={cn(

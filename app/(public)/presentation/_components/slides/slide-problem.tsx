@@ -26,7 +26,6 @@ const problems = [
 export function SlideProblem() {
   return (
     <SlideShell
-      index={2}
       eyebrow="The Problem"
       title={
         <>

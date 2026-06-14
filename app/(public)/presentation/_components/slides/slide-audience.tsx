@@ -31,7 +31,6 @@ const segments = [
 export function SlideAudience() {
   return (
     <SlideShell
-      index={7}
       eyebrow="Target Audience"
       title="Who we build it for."
       lead="There's more than one customer — and the one who pays isn't necessarily the builder."

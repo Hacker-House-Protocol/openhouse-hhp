@@ -12,9 +12,6 @@ export function SlideClosing() {
   return (
     <section className="relative flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-[#180149]">
       <MatrixBackground />
-      <span className="pointer-events-none absolute top-5 right-6 z-20 font-mono text-xs tracking-[0.2em] text-[#7B7A8E]">
-        12 / 12
-      </span>
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#8B78E6] md:text-xs">
           Closing
